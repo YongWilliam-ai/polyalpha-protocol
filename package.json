@@ -9,8 +9,8 @@
     "deploy:local": "hardhat run scripts/deploy.js --network hardhat",
     "verify": "hardhat verify --network amoy",
     "node": "hardhat node",
-    "push": "bash scripts/auto-push.sh",
-    "push:msg": "bash scripts/auto-push.sh"
+    "push": "git add -A && git commit -m \"chore: auto-sync\" && git push origin main",
+    "push:msg": "git add -A && git commit -m \"chore: auto-sync\" && git push origin main"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
