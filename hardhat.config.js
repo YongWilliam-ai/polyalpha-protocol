@@ -8,12 +8,13 @@ const POLYGONSCAN_API_KEY = process.env.POLYGONSCAN_API_KEY || "";
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.24",   // ← FIXED: upgraded from 0.8.20 to match OpenZeppelin v5 (^0.8.24)
+    version: "0.8.25",   // FIXED v3: 0.8.25 + cancun evm required for OpenZeppelin v5 Memory.sol (mcopy opcode)
     settings: {
       optimizer: {
         enabled: true,
         runs: 200,
       },
+      evmVersion: "cancun",  // Required for mcopy opcode used in OZ v5 Memory.sol
     },
   },
   networks: {
