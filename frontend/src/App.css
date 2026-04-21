@@ -1,0 +1,81 @@
+/* PolyAlpha Dashboard — Dark theme */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0d0d1a; color: #e0e0f0; font-family: "Inter", "Segoe UI", sans-serif; font-size: 14px; }
+a { color: #7c5cfc; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { background: #1e1e35; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+
+/* ── Layout ── */
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.5rem; background: #12122a; border-bottom: 1px solid #2a2a4a; }
+.header-brand { display: flex; align-items: center; gap: 0.5rem; }
+.brand-logo { font-size: 1.3rem; }
+.brand-name { font-weight: 700; font-size: 1.1rem; letter-spacing: 0.03em; }
+.brand-badge { font-size: 0.7rem; background: #3a3a6e; color: #aaa; border-radius: 4px; padding: 2px 6px; }
+.tabs { display: flex; gap: 0.25rem; }
+.tab-btn { background: none; border: 1px solid transparent; color: #888; cursor: pointer; padding: 0.4rem 0.9rem; border-radius: 6px; font-size: 13px; transition: all 0.15s; }
+.tab-btn:hover { color: #ddd; border-color: #3a3a5a; }
+.tab-btn.active { background: #2a2a5a; color: #fff; border-color: #5a5adc; }
+.main { flex: 1; padding: 1.5rem 2rem; max-width: 1200px; width: 100%; margin: 0 auto; }
+.footer { text-align: center; padding: 0.75rem; color: #555; font-size: 12px; border-top: 1px solid #1a1a2e; }
+
+/* ── Page ── */
+.page h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1.25rem; color: #d0d0ff; }
+.page h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: #b0b0e0; }
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.section { margin-top: 1.5rem; }
+
+/* ── Notices ── */
+.notice { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 13px; line-height: 1.6; }
+.notice.info    { background: #1a1a35; border: 1px solid #3a3a6e; }
+.notice.success { background: #0d2a1a; border: 1px solid #2a7a4a; color: #90e090; }
+.notice.warning { background: #2a2000; border: 1px solid #7a5a00; color: #e0c060; }
+.notice.error   { background: #2a0d0d; border: 1px solid #7a2a2a; color: #e08080; }
+
+/* ── Stats grid ── */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem; }
+.stat-card { background: #12122a; border: 1px solid #2a2a4a; border-radius: 10px; padding: 1rem; }
+.stat-card.stat-alert { border-color: #7a2a2a; background: #1a0d0d; }
+.stat-label { font-size: 11px; color: #888; margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-value { font-size: 1.3rem; font-weight: 700; color: #fff; }
+.stat-unit  { font-size: 11px; color: #666; margin-top: 0.2rem; }
+
+/* ── Form ── */
+.form-row { display: flex; gap: 0.5rem; align-items: center; }
+.input { background: #1a1a35; border: 1px solid #3a3a6e; color: #eee; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 14px; width: 160px; }
+.input:focus { outline: none; border-color: #7c5cfc; }
+.btn-primary { background: #5a3adc; color: #fff; border: none; padding: 0.5rem 1.1rem; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.btn-primary:hover:not(:disabled) { background: #7c5cfc; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-outline { background: none; color: #7c5cfc; border: 1px solid #5a3adc; padding: 0.5rem 1.1rem; border-radius: 6px; cursor: pointer; font-size: 14px; }
+.btn-outline:hover { background: #1a1a3a; }
+.btn-sm { padding: 0.3rem 0.7rem; font-size: 12px; }
+.address { font-family: monospace; font-size: 13px; color: #7c5cfc; }
+
+/* ── Tables ── */
+.table-wrap { overflow-x: auto; }
+.signal-table, .params-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.signal-table th, .params-table th { background: #1a1a35; color: #888; text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #2a2a4a; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+.signal-table td, .params-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #1a1a2e; }
+.signal-table tr:hover td { background: #14142a; }
+.params-table td:first-child { color: #888; width: 30px; }
+.params-table td:last-child { color: #888; font-size: 12px; }
+.mono { font-family: monospace; font-size: 12px; }
+.hash { color: #7c5cfc; }
+.market-q { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.num { text-align: right; font-family: monospace; }
+.positive { color: #60c060; }
+.negative { color: #e06060; }
+.tx-link { font-size: 16px; color: #7c5cfc; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.badge-up   { background: #0d3a1a; color: #60e060; }
+.badge-down { background: #3a0d0d; color: #e06060; }
+
+/* ── Chart ── */
+.chart-section { margin: 1.5rem 0; }
+.chart-section h3 { margin-bottom: 0.75rem; }
+.caption { font-size: 12px; color: #666; margin-top: 0.5rem; }
+
+/* ── Explainer ── */
+.explainer { padding-left: 1.25rem; line-height: 1.8; }
+.explainer li { margin-bottom: 0.25rem; }
