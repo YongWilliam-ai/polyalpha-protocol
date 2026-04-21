@@ -1,0 +1,2 @@
+# This directory stores backtest outputs (equity_curve.csv, backtest_summary.json)
+# These files are gitignored — generate them by running: python agent/backtest.py
