@@ -14,8 +14,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  *         creating a tamper-proof audit trail verifiable by anyone on Polygonscan.
  *
  * Architecture:
- *   User deposits USDC → receives paUSDC shares (ERC-4626)
- *   AI agent calls logPosition() after each signal → immutable on-chain event
+ *   User deposits USDC -> receives paUSDC shares (ERC-4626)
+ *   AI agent calls logPosition() after each signal -> immutable on-chain event
  *   Circuit breaker halts all activity if NAV drops 20% from peak
  *   Performance fee (20%) + management fee (0.5%) collected by owner
  *
@@ -24,24 +24,24 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 contract PolyAlphaVault is ERC4626, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    // ─── Fee constants (immutable — DAO governance controls these in v2) ───────
+    // --- Fee constants (immutable - DAO governance controls these in v2) -------
     uint256 public constant PERFORMANCE_FEE_BPS = 2000;   // 20%
     uint256 public constant MGMT_FEE_BPS        = 50;     // 0.5% annual
     uint256 public constant MAX_PERFORMANCE_FEE = 3000;   // Hard cap: 30%
     uint256 public constant BPS_DENOMINATOR     = 10_000;
 
-    // ─── Risk limits (hardcoded — cannot be changed without redeployment) ─────
+    // --- Risk limits (hardcoded - cannot be changed without redeployment) -----
     uint256 public constant MAX_POSITION_BPS    = 500;    // 5% TVL per position
     uint256 public constant MAX_EXPOSURE_BPS    = 4000;   // 40% TVL total open
-    uint256 public constant DRAWDOWN_HALT_BPS   = 2000;   // 20% drawdown → halt
+    uint256 public constant DRAWDOWN_HALT_BPS   = 2000;   // 20% drawdown -> halt
 
-    // ─── State ────────────────────────────────────────────────────────────────
+    // --- State ----------------------------------------------------------------
     address public aiAgent;
     uint256 public peakAssets;    // All-time high total assets (for drawdown calc)
     bool    public halted;        // Circuit breaker flag
     uint256 public lastMgmtFeeAt; // Timestamp of last management fee collection
 
-    // ─── Events ───────────────────────────────────────────────────────────────
+    // --- Events ---------------------------------------------------------------
 
     /**
      * @notice Emitted by the AI agent for every trading signal.
@@ -67,13 +67,13 @@ contract PolyAlphaVault is ERC4626, Ownable, ReentrancyGuard {
     event PerformanceFeeClaimed(uint256 profitAmount, uint256 feeAmount);
     event ManagementFeeClaimed(uint256 feeAmount);
 
-    // ─── Errors ───────────────────────────────────────────────────────────────
+    // --- Errors ---------------------------------------------------------------
     error OnlyAgent();
     error VaultHalted();
     error ZeroAmount();
     error InvalidFee();
 
-    // ─── Constructor ──────────────────────────────────────────────────────────
+    // --- Constructor ----------------------------------------------------------
 
     /**
      * @param _usdc    Address of USDC (or mock USDC on testnet)
@@ -88,7 +88,7 @@ contract PolyAlphaVault is ERC4626, Ownable, ReentrancyGuard {
         lastMgmtFeeAt = block.timestamp;
     }
 
-    // ─── Modifiers ────────────────────────────────────────────────────────────
+    // --- Modifiers ------------------------------------------------------------
 
     modifier onlyAgent() {
         if (msg.sender != aiAgent) revert OnlyAgent();
@@ -100,7 +100,7 @@ contract PolyAlphaVault is ERC4626, Ownable, ReentrancyGuard {
         _;
     }
 
-    // ─── Core ERC-4626 overrides (add circuit breaker check) ─────────────────
+    // --- Core ERC-4626 overrides (add circuit breaker check) -----------------
 
     function deposit(uint256 assets, address receiver)
         public override nonReentrant notHalted returns (uint256)
@@ -118,19 +118,19 @@ contract PolyAlphaVault is ERC4626, Ownable, ReentrancyGuard {
         return super.withdraw(assets, receiver, owner_);
     }
 
-    // ─── AI Agent: Signal Logging ─────────────────────────────────────────────
+    // --- AI Agent: Signal Logging ---------------------------------------------
 
     /**
      * @notice Called by the AI agent after each trading signal.
-     *         This function ONLY emits an event — it does NOT move funds.
+     *         This function ONLY emits an event - it does NOT move funds.
      *         Fund execution is handled off-chain via py-clob-client.
      *         The oracleInputHash proves the agent's exact inputs were not manipulated.
      *
      * @param marketQuestion    Polymarket market question text
-     * @param aiProbabilityBps  AI-estimated win probability × 10000
-     * @param marketPriceBps    Current Polymarket YES price × 10000
+     * @param aiProbabilityBps  AI-estimated win probability x 10000
+     * @param marketPriceBps    Current Polymarket YES price x 10000
      * @param side              "UP" or "DOWN"
-     * @param kellyFractionBps  Quarter-Kelly position size × 10000
+     * @param kellyFractionBps  Quarter-Kelly position size x 10000
      * @param oracleInputHash   SHA-256 hash of: btcOpen + btcCurrent + polyOdds + timestamp
      */
     function logPosition(
@@ -156,11 +156,11 @@ contract PolyAlphaVault is ERC4626, Ownable, ReentrancyGuard {
         );
     }
 
-    // ─── Circuit Breaker ──────────────────────────────────────────────────────
+    // --- Circuit Breaker ------------------------------------------------------
 
     /**
      * @notice Checks if drawdown from peak exceeds 20%. If so, halts the vault.
-     *         Anyone can call this — it's a public safety function.
+     *         Anyone can call this - it's a public safety function.
      */
     function checkCircuitBreaker() external {
         _updatePeakAndCheck();
@@ -190,7 +190,7 @@ contract PolyAlphaVault is ERC4626, Ownable, ReentrancyGuard {
         }
     }
 
-    // ─── Fee Collection ───────────────────────────────────────────────────────
+    // --- Fee Collection -------------------------------------------------------
 
     /**
      * @notice Owner calls this after each resolved position to collect performance fee.
@@ -216,14 +216,14 @@ contract PolyAlphaVault is ERC4626, Ownable, ReentrancyGuard {
         emit ManagementFeeClaimed(fee);
     }
 
-    // ─── Admin ────────────────────────────────────────────────────────────────
+    // --- Admin ----------------------------------------------------------------
 
     function setAgent(address newAgent) external onlyOwner {
         emit AgentUpdated(aiAgent, newAgent);
         aiAgent = newAgent;
     }
 
-    // ─── View helpers ─────────────────────────────────────────────────────────
+    // --- View helpers ---------------------------------------------------------
 
     function currentDrawdownBps() external view returns (uint256) {
         if (peakAssets == 0) return 0;
