@@ -39,6 +39,12 @@ Claude Code 在 Claude.ai 介面中完成了以下工作：
 - **重要決策**：GPT-4o 從 BTC 信號中移除，改用 Binance 動量規則（避免 API 成本）
 - **重要決策**：Becker dataset 聲明修正為「8,700+ markets」（非 400M）
 
+### 2026-04-21 上午 (Round 3) — Manus 修復 mcopy opcode 錯誤
+- **修復 Bug 3**：`hardhat.config.js` 的 Solidity 版本升級到 `0.8.25` 並加入 `evmVersion: "cancun"`
+  - 原因：OpenZeppelin v5 的 `Memory.sol` 使用了 `mcopy` opcode，這是 EVM Cancun 升級（EIP-5656）才引入的指令，需要 Solidity 0.8.25 + `evmVersion: cancun`
+  - 修復已推送到 GitHub main branch
+- **重要技術規格更新**：Solidity 版本 = `0.8.25`，evmVersion = `cancun`（不能改！）
+
 ### 2026-04-21 上午 (Round 2) — Manus 修復 Unicode 字符編譯錯誤
 - **修復 Bug 2**：`PALPHAToken.sol` 和 `PolyAlphaVault.sol` 中有大量 Unicode 字符（`—` em dash、`─` box drawing、`×` multiply、`≥` greater-equal）
   - Solidity 編譯器不接受字串中的非 ASCII 字符
@@ -109,7 +115,8 @@ polyalpha-protocol/
 
 ## 重要技術規格（Claude Code 必須遵守）
 
-- **Solidity 版本**：`^0.8.24`（不能用 0.8.20，OpenZeppelin v5 要求）
+- **Solidity 版本**：`0.8.25`（不能用 0.8.20/0.8.24！OpenZeppelin v5 Memory.sol 的 mcopy opcode 需要 0.8.25）
+- **EVM 版本**：`cancun`（不能省略！mcopy 是 EIP-5656 Cancun 指令）
 - **OpenZeppelin 版本**：v5（已安裝）
 - **測試網**：Polygon Amoy（chainId: 80002）
 - **Token 供應量**：10M max supply，3M initial mint（不能改）
