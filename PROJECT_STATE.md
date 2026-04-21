@@ -39,7 +39,14 @@ Claude Code 在 Claude.ai 介面中完成了以下工作：
 - **重要決策**：GPT-4o 從 BTC 信號中移除，改用 Binance 動量規則（避免 API 成本）
 - **重要決策**：Becker dataset 聲明修正為「8,700+ markets」（非 400M）
 
-### 2026-04-21 上午 — Manus 完成 GitHub 遷移與 Bug 修復
+### 2026-04-21 上午 (Round 2) — Manus 修復 Unicode 字符編譯錯誤
+- **修復 Bug 2**：`PALPHAToken.sol` 和 `PolyAlphaVault.sol` 中有大量 Unicode 字符（`—` em dash、`─` box drawing、`×` multiply、`≥` greater-equal）
+  - Solidity 編譯器不接受字串中的非 ASCII 字符
+  - 已用 Python 腳本掃描並替換全部 3 個合約文件中的所有非 ASCII 字符
+  - 修復已推送到 GitHub main branch
+- **當前狀態**：`npm run compile` 應可成功，等待 William 執行驗證
+
+### 2026-04-21 上午 (Round 1) — Manus 完成 GitHub 遷移與 Bug 修復
 - 在 GitHub 建立了私有 repo `YongWilliam-ai/polyalpha-protocol`
 - 建立了 `.gitignore`、`README.md`、`scripts/auto-push.sh`、`package.json`
 - **修復 Bug**：`hardhat.config.js` 的 Solidity 版本從 `0.8.20` 升級到 `0.8.24`
