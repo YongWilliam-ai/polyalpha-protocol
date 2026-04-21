@@ -13,6 +13,7 @@
 | 層級 | 狀態 | 說明 |
 |---|---|---|
 | GitHub Repo | ✅ 已建立 | `YongWilliam-ai/polyalpha-protocol` (private) |
+| npm run compile | ✅ 已成功 | Compiled 24 Solidity files successfully (evm target: cancun) |
 | 合約：PolyAlphaVault.sol | ✅ 已完成 | ERC-4626 + logPosition() + circuit breaker |
 | 合約：PALPHAToken.sol | ✅ 已完成 | 10M max supply ERC-20 (6 utility stubs) |
 | 合約：MockUSDC.sol | ✅ 已完成 | Testnet USDC |
