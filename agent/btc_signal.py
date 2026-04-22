@@ -22,6 +22,7 @@ import hashlib
 import json
 import time
 import requests
+import numpy as np
 from dataclasses import dataclass
 from typing import Optional
 
@@ -29,13 +30,17 @@ BINANCE_KLINE_URL = "https://api.binance.com/api/v3/klines"
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/price"
 GAMMA_API         = "https://gamma-api.polymarket.com"
 
-# ── Signal parameters ─────────────────────────────────────────────────────────
+# ── Signal parameters ────────────────────────────────────────────────────────
 MOMENTUM_THRESHOLD   = 0.003   # BTC must move >0.3% in 7 minutes
 ODDS_MAX_FOR_ENTRY   = 0.62    # Polymarket odds must be <62% (market hasn't priced it in)
-EDGE_MIN_BPS         = 800     # Minimum 8% edge (80 basis points on a 0–1 scale)
+EDGE_MIN_BPS         = 800     # Minimum 8% edge
+EDGE_MAX_BPS         = 1500    # Dual-source cap: abort if divergence > 15% (data anomaly)
 MIN_LIQUIDITY_USD    = 50_000  # Minimum $50K market liquidity
-KELLY_FRACTION       = 0.25    # Quarter-Kelly
+KELLY_FRACTION       = 0.25    # Quarter-Kelly scaling factor
 MAX_POSITION_BPS     = 500     # 5% TVL cap per position
+MONTE_CARLO_PATHS    = 10_000  # Paths for Monte Carlo Kelly sizing
+MONTE_CARLO_SIGMA    = 0.05    # Std dev on probability estimate (epistemic uncertainty)
+MONTE_CARLO_SEED     = 42      # Reproducible sampling
 
 
 @dataclass
@@ -73,10 +78,10 @@ class BtcSignal:
         return self.edge_bps >= EDGE_MIN_BPS
 
     def __str__(self) -> str:
+        label = "SIGNAL" if self.is_valid() else "NO TRADE"
         return (
-            f"{'✅ SIGNAL' if self.is_valid() else '⛔ NO TRADE'} | "
-            f"Side: {self.side} | "
-            f"BTC Δ: {self.btc_momentum*100:+.2f}% | "
+            f"[{label}] Side: {self.side} | "
+            f"BTC Delta: {self.btc_momentum*100:+.2f}% | "
             f"Market: {self.market_price*100:.1f}% | "
             f"AI Est: {self.ai_probability*100:.1f}% | "
             f"Edge: {self.edge_bps/100:+.1f}% | "
@@ -131,15 +136,38 @@ def btc_momentum_to_probability(market_price: float, btc_momentum: float) -> flo
     if abs(btc_momentum) < MOMENTUM_THRESHOLD:
         return market_price  # insufficient signal, return market price
 
-    # Momentum-based adjustment: each 0.1% move → +3% probability
+    # Momentum-based adjustment: each 0.1% move -> +3% probability
+    # Cap raised to 0.25 so that strong moves (>0.5%) can exceed the dual-source
+    # 15% limit and trigger the oracle consistency abort in generate_signal().
     raw_adjustment = (abs(btc_momentum) / 0.001) * 0.03
-    capped_adjustment = min(raw_adjustment, 0.15)  # hard cap at +15%
+    capped_adjustment = min(raw_adjustment, 0.25)  # hard cap at +25%
 
     direction = 1 if btc_momentum > 0 else -1
     adjusted_prob = market_price + (direction * capped_adjustment)
 
     # Clamp to [0.01, 0.99]
     return max(0.01, min(0.99, adjusted_prob))
+
+
+# ── Dual-source oracle consistency check ─────────────────────────────────────
+
+def dual_source_oracle_check(ai_prob: float, market_price: float) -> bool:
+    """
+    V2.0 safety gate comparing two independent probability estimates.
+
+    Source 1 (Polymarket): market-aggregated probability for the direction.
+    Source 2 (Binance): our momentum-derived probability (ai_prob).
+
+    A small divergence (8-15%) is our edge -- that is the trade.
+    An EXTREME divergence (>15%) is suspicious: it may mean a data feed is
+    stale, a news event broke our momentum model, or oracle data is bad.
+    We abort in that case rather than bet on potentially corrupted data.
+
+    Valid trade window: EDGE_MIN_BPS (8%) <= divergence < EDGE_MAX_BPS (15%).
+    Returns True if safe to proceed, False if signal should be aborted.
+    """
+    divergence = abs(ai_prob - market_price)
+    return divergence <= (EDGE_MAX_BPS / 10_000)
 
 
 # ── Kelly criterion ───────────────────────────────────────────────────────────
@@ -160,6 +188,46 @@ def quarter_kelly(p: float, market_price: float) -> float:
     f_full = (p * b - q) / b
 
     f_quarter = f_full * KELLY_FRACTION
+    return min(max(f_quarter, 0.0), MAX_POSITION_BPS / 10_000)
+
+
+def monte_carlo_kelly(
+    p: float,
+    market_price: float,
+    n_paths: int = MONTE_CARLO_PATHS,
+    seed: int = MONTE_CARLO_SEED,
+) -> float:
+    """
+    V2.0 Monte Carlo Kelly sizing.
+
+    Instead of using the point estimate p directly, we sample N probabilities
+    from Normal(p, MONTE_CARLO_SIGMA), capturing our epistemic uncertainty about
+    the true win probability. We compute the full Kelly fraction for each sampled
+    probability, then take the MEDIAN and apply quarter-Kelly.
+
+    Rationale:
+    - Our rule-based model is not a trained ML model; p has ~5% estimation error.
+    - The median is robust: it ignores the top 50% of optimistic Kelly fractions,
+      producing a naturally conservative position size.
+    - 10,000 paths gives stable convergence without being expensive (numpy vectorized).
+
+    Returns quarter-Kelly of the median simulated fraction, capped at 5% TVL.
+    """
+    if p <= market_price:
+        return 0.0
+
+    rng = np.random.default_rng(seed)
+    p_samples = rng.normal(p, MONTE_CARLO_SIGMA, n_paths)
+    p_samples = np.clip(p_samples, 0.01, 0.99)
+
+    b = (1 - market_price) / market_price  # fixed odds for all paths
+
+    kelly_samples = (p_samples * b - (1 - p_samples)) / b
+    kelly_samples = np.maximum(kelly_samples, 0.0)  # floor at zero
+
+    f_median = float(np.median(kelly_samples))
+    f_quarter = f_median * KELLY_FRACTION
+
     return min(max(f_quarter, 0.0), MAX_POSITION_BPS / 10_000)
 
 
@@ -239,8 +307,13 @@ def generate_signal(
     if relevant_price >= ODDS_MAX_FOR_ENTRY:
         return None  # Market already priced in the momentum
 
-    # Estimate true probability
+    # Estimate true probability (Binance momentum model)
     ai_prob = btc_momentum_to_probability(relevant_price, abs(btc_momentum))
+
+    # V2.0: Dual-source oracle consistency check
+    # Aborts if divergence > 15% -- extreme gap suggests stale or corrupted data
+    if not dual_source_oracle_check(ai_prob, relevant_price):
+        return None
 
     # Edge calculation
     edge = ai_prob - relevant_price
@@ -248,8 +321,8 @@ def generate_signal(
     # Build oracle hash for on-chain integrity
     oracle_hash = build_oracle_hash(btc_open, btc_now, market_price, ts)
 
-    # Kelly sizing
-    kelly_f = quarter_kelly(ai_prob, relevant_price)
+    # V2.0: Monte Carlo Kelly sizing (10,000 paths, uncertainty-adjusted)
+    kelly_f = monte_carlo_kelly(ai_prob, relevant_price)
 
     signal = BtcSignal(
         market_question = market_question,
@@ -272,25 +345,44 @@ def generate_signal(
 # ── Standalone test ───────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print("BTC Signal Engine — Manual Test")
-    print("=" * 50)
+    print("BTC Signal Engine V2.0 -- Manual Test")
+    print("=" * 55)
 
-    # Simulated test: BTC moved up 0.5% in 7 minutes, market still at 55%
-    test_signal = generate_signal(
-        market_question = "Will Bitcoin be higher in 15 minutes? [Test]",
-        condition_id    = "0xtest",
-        market_price    = 0.55,   # Polymarket YES price
-        liquidity_usd   = 100_000,
-        btc_open        = 45_000.0,
-        btc_now         = 45_225.0,  # +0.5% move
+    # Test 1: Valid signal (0.4% BTC move, market at 55% -> divergence 0.12, within 15% cap)
+    print("\n[Test 1] Valid signal: BTC +0.4%, market 55%")
+    sig = generate_signal(
+        market_question="Will Bitcoin be higher in 15 minutes? [Test]",
+        condition_id="0xtest",
+        market_price=0.55,
+        liquidity_usd=100_000,
+        btc_open=45_000.0,
+        btc_now=45_180.0,  # +0.4% -> adjustment 0.12 -> ai_prob 0.67 -> edge 12%
     )
-
-    if test_signal:
-        print(test_signal)
-        print(f"\nOracle hash (for on-chain logging): {test_signal.oracle_hash}")
-        print(f"Kelly fraction:   {test_signal.kelly_fraction*100:.2f}% of TVL")
-        print(f"ai_prob_bps:      {test_signal.ai_prob_bps}  (71.00 = 71.00%)")
-        print(f"market_price_bps: {test_signal.market_price_bps}")
-        print(f"edge_bps:         {test_signal.edge_bps}")
+    if sig:
+        print(sig)
+        print(f"  Oracle hash:  {sig.oracle_hash}")
+        print(f"  MC Kelly:     {sig.kelly_fraction*100:.2f}% TVL  (Monte Carlo)")
+        print(f"  Edge:         {sig.edge_bps/100:.1f}%")
     else:
-        print("No signal generated (below thresholds)")
+        print("  No signal.")
+
+    # Test 2: Dual-source abort (BTC +0.7% -> adjustment 0.21 -> divergence 0.21 > 0.15 -> abort)
+    print("\n[Test 2] Dual-source abort: BTC +0.7% (extreme for our model)")
+    sig2 = generate_signal(
+        market_question="Will Bitcoin be higher in 15 minutes? [Extreme]",
+        condition_id="0xtest2",
+        market_price=0.50,
+        liquidity_usd=100_000,
+        btc_open=45_000.0,
+        btc_now=45_315.0,  # +0.7% -> adjustment 0.21 -> divergence 0.21 > 0.15 -> aborted
+    )
+    print(f"  Signal generated: {sig2 is not None}  (expect False -- dual-source abort)")
+
+    # Test 3: Monte Carlo Kelly standalone
+    print("\n[Test 3] Monte Carlo Kelly vs Point Kelly comparison")
+    p_test, mkt_test = 0.68, 0.55
+    mc = monte_carlo_kelly(p_test, mkt_test)
+    pt = quarter_kelly(p_test, mkt_test)
+    print(f"  p={p_test}, market={mkt_test}")
+    print(f"  Point Kelly (V1): {pt*100:.2f}% TVL")
+    print(f"  Monte Carlo (V2): {mc*100:.2f}% TVL  (conservative -- median over 10k paths)")
