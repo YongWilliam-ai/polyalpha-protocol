@@ -13,15 +13,15 @@
 | 層級 | 狀態 | 說明 |
 |---|---|---|
 | GitHub Repo | ✅ 已建立 | `YongWilliam-ai/polyalpha-protocol` (private) |
-| npm run compile | ✅ 已成功 | Compiled 24 Solidity files successfully (evm target: cancun) |
+| npm run compile | ✅ 已成功 | Compiled 26 Solidity files successfully (evm target: cancun) - 包含新合約 |
 | 合約：PolyAlphaVault.sol | ✅ 已完成 | ERC-4626 + logPosition() + circuit breaker |
 | 合約：PALPHAToken.sol | ✅ 已完成 | 10M max supply ERC-20 (6 utility stubs) |
 | 合約：MockUSDC.sol | ✅ 已完成 | Testnet USDC |
-| 合約：ALPHAStakingPool.sol | ⏳ 待 Claude 寫 | 第一個 5 小時週期任務 |
-| 合約：PALPHABuybackBurn.sol | ⏳ 待 Claude 寫 | 第一個 5 小時週期任務 |
+| 合約：ALPHAStakingPool.sol | ✅ 已完成 | Synthetix-style 10% APY, stake/unstake/claimReward, pre-funded model |
+| 合約：PALPHABuybackBurn.sol | ✅ 已完成 | depositForBurn() + executeBurn(usdcSpent), ERC20Burnable |
 | 合約：PolyAlphaDAO.sol | ⏳ 待 Claude 寫 | 第二個 5 小時週期任務 |
 | Python Agent | ✅ 基礎已完成 | btc_signal.py + agent.py + backtest.py |
-| Python Agent (升級) | ⏳ 待 Claude 升級 | 雙源預言機 + 蒙特卡洛 Kelly |
+| Python Agent V2 | ✅ 已升級 | dual_source_oracle_check() + monte_carlo_kelly() (10,000 paths) |
 | 前端 Dashboard | ✅ 骨架已完成 | VaultPage, PositionLogPage, BacktestPage |
 | 前端 $PALPHA Hub | ⏳ 待 Manus 建 | 質押/治理/回購頁面 |
 | Amoy 部署 | ⏳ 待 William 執行 | npm run compile 已修復，等待 npm run deploy:amoy |
@@ -98,19 +98,72 @@ polyalpha-protocol/
 ## 下一步行動清單
 
 ### William 需要做（按順序）
-1. `git pull origin main --rebase` — 拉取 Manus 修復的 hardhat.config.js
-2. `npm run compile` — 驗證編譯成功
-3. 填寫 `.env` 文件（PRIVATE_KEY, AMOY_RPC_URL, POLYGONSCAN_API_KEY）
-4. `npm run deploy:amoy` — 部署到 Polygon Amoy 測試網
-5. 把合約地址填回 `.env`
+1. 填寫 `.env` 文件（PRIVATE_KEY, AMOY_RPC_URL, POLYGONSCAN_API_KEY）
+2. `npm run deploy:amoy` — 部署全部 5 個合約到 Polygon Amoy 測試網
+3. 把輸出的合約地址填回 `.env`
+4. 執行 `npm run push` 同步到 GitHub
+5. 把合約地址告訴 Manus，讓 Manus 更新前端 config
 
-### Claude Code 需要做（第一個 5 小時週期）
-- 寫 `ALPHAStakingPool.sol`
-- 寫 `PALPHABuybackBurn.sol`
+### Claude Code 需要做（第二個 5 小時週期）
+- 寫 `PolyAlphaDAO.sol`（createProposal / vote / executeProposal + 48小時時間鎖）
+- 更新 `scripts/deploy.js` 加入全部 5 個合約的部署指令
 
-### Manus 需要做（等 Claude 完成合約後）
+### Manus 需要做（等 William 提供合約地址後）
 - 建立前端 `$PALPHA Hub` 頁面（質押/治理/回購）
 - 更新 `frontend/src/config.js` 加入新合約地址
+
+---
+
+## Claude Code 第二個 5 小時週期 Prompt
+
+```text
+[CONTEXT & MEMORY - Read this first]
+Project: PolyAlpha Protocol (ISOM3270 Final Project)
+Working Directory: C:\Users\user\Desktop\Dev.items.folder\ISOM3270_Startup
+
+What happened in the previous session:
+1. You (Claude Code) wrote ALPHAStakingPool.sol and PALPHABuybackBurn.sol - both compile cleanly.
+2. You upgraded agent/btc_signal.py with dual_source_oracle_check() and monte_carlo_kelly() (10,000 paths).
+3. All 26 Solidity files compile successfully (Solidity 0.8.25, evmVersion: cancun).
+4. Manus pushed everything to GitHub: YongWilliam-ai/polyalpha-protocol
+
+Current contract inventory (all in contracts/):
+- PolyAlphaVault.sol     (ERC-4626 vault)
+- PALPHAToken.sol        (10M max supply ERC-20)
+- MockUSDC.sol           (testnet USDC)
+- ALPHAStakingPool.sol   (10% APY staking, pre-funded)
+- PALPHABuybackBurn.sol  (depositForBurn + executeBurn)
+
+[TASK - What you need to do now]
+
+Task 1: Write contracts/PolyAlphaDAO.sol
+- createProposal(description, targetContract, callData) - requires 1,000 PALPHA to propose
+- vote(proposalId, support) - 1 PALPHA = 1 vote
+- executeProposal(proposalId) - only executable after 48-hour timelock AND majority YES votes
+- cancelProposal(proposalId) - only by proposer if not yet executed
+- Voting period: 48 hours
+- Quorum: at least 100,000 PALPHA votes total
+
+Task 2: Update scripts/deploy.js to deploy all 5 contracts in order:
+  1. MockUSDC
+  2. PALPHAToken
+  3. PolyAlphaVault (args: MockUSDC address, PALPHAToken address, agent wallet address)
+  4. ALPHAStakingPool (args: PALPHAToken address)
+  5. PALPHABuybackBurn (args: PALPHAToken address)
+  6. PolyAlphaDAO (args: PALPHAToken address)
+  Print all addresses at the end in a clear format.
+
+[CONSTRAINTS]
+- Solidity version: exactly 0.8.25 (no caret)
+- evmVersion: cancun (already set in hardhat.config.js, do not change)
+- OpenZeppelin v5 only
+- ASCII-only in all .sol files (no Unicode chars like em dash, box drawing, etc.)
+- Do NOT modify any existing contracts
+
+[WORKFLOW]
+When done, run npm run compile to verify (should show 27+ files), then tell William:
+"DAO contract and deploy script are ready. Please run npm run push to sync with GitHub."
+```
 
 ---
 
