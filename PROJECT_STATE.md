@@ -215,3 +215,25 @@ TASK 3 (UPGRADE): Update agent/agent.py for Polymarket V2
 2. Run: npm run compile (should show 27+ Solidity files successfully)
 3. Tell William: "All 3 tasks complete. Please run: npm run push"
 ```
+
+---
+
+## runes_leo 踩坑記錄洞見 (Added 2026-04-27)
+
+來源：https://x.com/runes_leo/status/2044009023713022094
+
+### 核心元規則（Claude Code 必須理解）
+
+1. **H = Hypothesis（假設）**：每個策略都是一個假設，85% 的假設會死。不要情感綁定。
+2. **死的策略比活的更有價值**：死因分析 > 成功策略。每次策略失敗，必須寫 Autopsy Report。
+3. **Paper Trading ≠ Live Trading**：跟單「聰明錢」Paper 賺 77%，實盤虧 74%。滑點和延遲是殺手。
+4. **官方 API 的 PnL 計算有 Bug**：18.3% 的交易記錄是假的。必須用現金流模型計算 PnL。
+5. **正收益是減出來的**：學會停止虧損策略，比尋找新策略更重要。
+
+### 死亡判定標準（Kill Criteria）
+- 連續 50 筆交易後，勝率 < 52% → KILL
+- Max Drawdown 超過 15% → KILL
+- 實盤與 Paper 的 PnL 偏差超過 20% → PAUSE & REVIEW
+
+### 當前策略假設
+- **H1_BTC_Momentum**：BTC 15分鐘動量領先 Polymarket 賠率變化（待回測驗證）
