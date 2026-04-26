@@ -6,6 +6,7 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:amoy": "hardhat run scripts/deploy.js --network amoy",
+    "deploy:chainlab": "hardhat run scripts/deploy.js --network chainlab",
     "deploy:local": "hardhat run scripts/deploy.js --network hardhat",
     "verify": "hardhat verify --network amoy",
     "node": "hardhat node",
