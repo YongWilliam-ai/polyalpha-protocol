@@ -6,61 +6,75 @@
 
 ---
 
-## 當前狀態快照 (Last Updated: 2026-04-21)
+## 當前狀態快照 (Last Updated: 2026-04-27)
 
 ### 整體進度
 
 | 層級 | 狀態 | 說明 |
 |---|---|---|
 | GitHub Repo | ✅ 已建立 | `YongWilliam-ai/polyalpha-protocol` (private) |
-| npm run compile | ✅ 已成功 | Compiled 26 Solidity files successfully (evm target: cancun) - 包含新合約 |
+| npm run compile | ✅ 已成功 | Compiled 26 Solidity files successfully (evm target: cancun) |
 | 合約：PolyAlphaVault.sol | ✅ 已完成 | ERC-4626 + logPosition() + circuit breaker |
-| 合約：PALPHAToken.sol | ✅ 已完成 | 10M max supply ERC-20 (6 utility stubs) |
+| 合約：PALPHAToken.sol | ✅ 已完成 | 10M max supply ERC-20 |
 | 合約：MockUSDC.sol | ✅ 已完成 | Testnet USDC |
-| 合約：ALPHAStakingPool.sol | ✅ 已完成 | Synthetix-style 10% APY, stake/unstake/claimReward, pre-funded model |
-| 合約：PALPHABuybackBurn.sol | ✅ 已完成 | depositForBurn() + executeBurn(usdcSpent), ERC20Burnable |
+| 合約：ALPHAStakingPool.sol | ✅ 已完成 | Synthetix-style 10% APY |
+| 合約：PALPHABuybackBurn.sol | ✅ 已完成 | depositForBurn() + executeBurn() |
 | 合約：PolyAlphaDAO.sol | ⏳ 待 Claude 寫 | 第二個 5 小時週期任務 |
-| Python Agent | ✅ 基礎已完成 | btc_signal.py + agent.py + backtest.py |
-| Python Agent V2 | ✅ 已升級 | dual_source_oracle_check() + monte_carlo_kelly() (10,000 paths) |
-| 前端 Dashboard | ✅ 骨架已完成 | VaultPage, PositionLogPage, BacktestPage |
+| 部署網絡 | ✅ ChainLab Testnet | chainId: 31337, RPC: https://testnet.chainlab.fun |
+| 部署狀態 | ✅ 5 個合約已部署 | 見下方地址 |
+| Python Agent | ✅ V2 已升級 | dual_source_oracle_check() + monte_carlo_kelly() |
+| 前端 Dashboard | ✅ 已配置合約地址 | 3 個頁面 + config.js 已填入地址 |
 | 前端 $PALPHA Hub | ⏳ 待 Manus 建 | 質押/治理/回購頁面 |
-| Amoy 部署 | ⏳ 待 William 執行 | npm run compile 已修復，等待 npm run deploy:amoy |
 | 回測報告 | ⏳ 待執行 | python backtest.py |
+| Polygonscan API Key | ✅ 已設定 | ACE4F5VKZJYRCW8MHWGZ816W9ZI5VPCQJ9 |
 
 ---
 
-## 已完成的關鍵決策與修復記錄
+## 已部署合約地址（ChainLab Testnet, chainId: 31337）
 
-### 2026-04-21 凌晨 1:41 — Claude Code 完成 V2.0 初始建置
-Claude Code 在 Claude.ai 介面中完成了以下工作：
-- 建立了完整的 `contracts/` 目錄（Vault, Token, MockUSDC）
-- 建立了 `agent/` 目錄（btc_signal.py, agent.py, backtest.py, test_connection.py）
-- 建立了 `frontend/` 目錄（React 骨架，3 個頁面）
-- 建立了 `scripts/deploy.js`、`hardhat.config.js`、`SETUP.md`
-- **重要決策**：GPT-4o 從 BTC 信號中移除，改用 Binance 動量規則（避免 API 成本）
-- **重要決策**：Becker dataset 聲明修正為「8,700+ markets」（非 400M）
+| 合約 | 地址 |
+|---|---|
+| MockUSDC | `0x77D7D52eE789B7C6bcD94eb87e2391BBb94A8D0a` |
+| PALPHAToken | `0x36381Cd13C9030Eb7dfa7C274837115370FEcdbF` |
+| PolyAlphaVault | `0x1c275054C7159aBBF446E652A744EFB8cbf6efd0` |
+| ALPHAStakingPool | `0xF8E9E3af72E1F673B21eCB4d96C99BF9c1D47832` |
+| PALPHABuybackBurn | `0xEc33dBc9dFAa1c380863547C5bCB7597eD611Ea4` |
 
-### 2026-04-21 上午 (Round 3) — Manus 修復 mcopy opcode 錯誤
-- **修復 Bug 3**：`hardhat.config.js` 的 Solidity 版本升級到 `0.8.25` 並加入 `evmVersion: "cancun"`
-  - 原因：OpenZeppelin v5 的 `Memory.sol` 使用了 `mcopy` opcode，這是 EVM Cancun 升級（EIP-5656）才引入的指令，需要 Solidity 0.8.25 + `evmVersion: cancun`
-  - 修復已推送到 GitHub main branch
-- **重要技術規格更新**：Solidity 版本 = `0.8.25`，evmVersion = `cancun`（不能改！）
+> **注意**：部署在 ChainLab Testnet（非 Polygon Amoy）。如需部署到 Amoy，使用 `npm run deploy:amoy`。
 
-### 2026-04-21 上午 (Round 2) — Manus 修復 Unicode 字符編譯錯誤
-- **修復 Bug 2**：`PALPHAToken.sol` 和 `PolyAlphaVault.sol` 中有大量 Unicode 字符（`—` em dash、`─` box drawing、`×` multiply、`≥` greater-equal）
-  - Solidity 編譯器不接受字串中的非 ASCII 字符
-  - 已用 Python 腳本掃描並替換全部 3 個合約文件中的所有非 ASCII 字符
-  - 修復已推送到 GitHub main branch
-- **當前狀態**：`npm run compile` 應可成功，等待 William 執行驗證
+---
 
-### 2026-04-21 上午 (Round 1) — Manus 完成 GitHub 遷移與 Bug 修復
-- 在 GitHub 建立了私有 repo `YongWilliam-ai/polyalpha-protocol`
-- 建立了 `.gitignore`、`README.md`、`scripts/auto-push.sh`、`package.json`
-- **修復 Bug**：`hardhat.config.js` 的 Solidity 版本從 `0.8.20` 升級到 `0.8.24`
-  - 原因：OpenZeppelin v5 的 `ERC4626.sol` 和 `Memory.sol` 要求 `^0.8.24`
-  - 修復已推送到 GitHub main branch
-- William 已成功執行 `npm install`（579 packages installed）
-- William 需要執行 `git pull` 後再次嘗試 `npm run compile`
+## 環境變數（已設定）
+
+| 變數 | 值 |
+|---|---|
+| PRIVATE_KEY | `7d9d78a502311391d25a8a6f9be0f5f74032d55dd5687c2f512bfcf7dd7717eb` |
+| POLYGONSCAN_API_KEY | `ACE4F5VKZJYRCW8MHWGZ816W9ZI5VPCQJ9` |
+| AMOY_RPC_URL | `https://rpc-amoy.polygon.technology/` |
+| CHAINLAB_RPC_URL | `https://testnet.chainlab.fun` |
+
+---
+
+## 重要技術規格（Claude Code 必須遵守）
+
+- **Solidity 版本**：`0.8.25`（不能用 0.8.20/0.8.24！）
+- **EVM 版本**：`cancun`（不能省略！mcopy 是 EIP-5656 Cancun 指令）
+- **OpenZeppelin 版本**：v5（已安裝）
+- **測試網**：ChainLab Testnet（chainId: 31337）已部署；Polygon Amoy（chainId: 80002）備用
+- **Token 供應量**：10M max supply，3M initial mint（不能改）
+- **Agent 模式**：Dry-run 模式（VAULT_CONTRACT_ADDRESS 未設定時自動啟用）
+- **信號引擎**：Binance 動量規則（不用 GPT-4o，避免 API 成本）
+- **ASCII only**：所有 .sol 文件不能有 Unicode 字符（em dash, box drawing 等）
+
+---
+
+## Polymarket V2 遷移注意事項（2026-04-22 已上線）
+
+- V1 已棄用，V2 使用 pUSD（而非 USDC.e）作為抵押品
+- Python Agent 如需直接連接 Polymarket，必須使用 `py-clob-client-v2`
+- 新訂單結構：移除 `nonce/feeRateBps`，新增 `timestamp/builder`
+- 新 Exchange 合約地址：`0xE111180000d2663C0091e4f400237545B87B996B`
+- **對我們的影響**：Vault 合約本身不受影響（我們用 MockUSDC 模擬）；Agent 的 Polymarket 數據獲取需要升級
 
 ---
 
@@ -71,26 +85,33 @@ polyalpha-protocol/
 ├── contracts/
 │   ├── PolyAlphaVault.sol      ✅ ERC-4626 vault + logPosition() + circuit breaker
 │   ├── PALPHAToken.sol         ✅ 10M max supply ERC-20
-│   └── MockUSDC.sol            ✅ Testnet USDC
+│   ├── MockUSDC.sol            ✅ Testnet USDC
+│   ├── ALPHAStakingPool.sol    ✅ 10% APY staking
+│   ├── PALPHABuybackBurn.sol   ✅ depositForBurn + executeBurn
+│   └── PolyAlphaDAO.sol        ⏳ 待寫
 ├── scripts/
-│   ├── deploy.js               ✅ Hardhat deploy script
+│   ├── deploy.js               ✅ 部署 5 個合約（需加 DAO）
 │   └── auto-push.sh            ✅ Auto git push script
 ├── agent/
-│   ├── btc_signal.py           ✅ 7-min BTC momentum signal
+│   ├── btc_signal.py           ✅ V2: dual_source_oracle + monte_carlo_kelly
 │   ├── agent.py                ✅ Main scan → signal → log loop
 │   ├── backtest.py             ✅ Historical backtester
 │   └── test_connection.py      ✅ Connection tester
 ├── frontend/
-│   └── src/pages/
-│       ├── VaultPage.js        ✅ TVL stats + deposit/withdraw
-│       ├── PositionLogPage.js  ✅ On-chain signal log
-│       └── BacktestPage.js     ✅ Equity curve chart
-├── hardhat.config.js           ✅ FIXED: Solidity 0.8.24
+│   └── src/
+│       ├── config.js           ✅ 5 個合約地址已填入（ChainLab）
+│       ├── App.js              ✅ 3 個 Tab 導航
+│       └── pages/
+│           ├── VaultPage.js        ✅ TVL stats + deposit/withdraw
+│           ├── PositionLogPage.js  ✅ On-chain signal log
+│           ├── BacktestPage.js     ✅ Equity curve chart
+│           └── PALPHAHubPage.js    ⏳ 待 Manus 建（質押/治理/回購）
+├── hardhat.config.js           ✅ Solidity 0.8.25 + cancun + ChainLab network
 ├── package.json                ✅ npm scripts configured
-├── .env.example                ✅ Template (William needs to fill .env)
+├── .env                        ✅ 已填入所有環境變數
 ├── .gitignore                  ✅
 ├── README.md                   ✅
-└── SETUP.md                    ✅ Day-by-Day execution guide
+└── SETUP.md                    ✅
 ```
 
 ---
@@ -98,81 +119,99 @@ polyalpha-protocol/
 ## 下一步行動清單
 
 ### William 需要做（按順序）
-1. 填寫 `.env` 文件（PRIVATE_KEY, AMOY_RPC_URL, POLYGONSCAN_API_KEY）
-2. `npm run deploy:amoy` — 部署全部 5 個合約到 Polygon Amoy 測試網
-3. 把輸出的合約地址填回 `.env`
-4. 執行 `npm run push` 同步到 GitHub
-5. 把合約地址告訴 Manus，讓 Manus 更新前端 config
+1. 在 VS Code 終端機執行：`cd frontend && npm install && npm start`
+2. 截圖前端畫面給 Manus 確認
+3. 把「Claude Code 第三週期 Prompt」（見下方）貼給 Claude Code
 
-### Claude Code 需要做（第二個 5 小時週期）
-- 寫 `PolyAlphaDAO.sol`（createProposal / vote / executeProposal + 48小時時間鎖）
-- 更新 `scripts/deploy.js` 加入全部 5 個合約的部署指令
+### Claude Code 需要做（第三週期）
+- 見下方完整 Prompt
 
-### Manus 需要做（等 William 提供合約地址後）
-- 建立前端 `$PALPHA Hub` 頁面（質押/治理/回購）
-- 更新 `frontend/src/config.js` 加入新合約地址
+### Manus 需要做（等 William 確認前端可以跑後）
+- 建立 `frontend/src/pages/PALPHAHubPage.js`（質押/治理/回購）
+- 更新 `frontend/src/App.js` 加入第四個 Tab
+- 執行回測並生成 equity curve 圖表
 
 ---
 
-## Claude Code 第二個 5 小時週期 Prompt
+## Claude Code 第三週期 Prompt（合併版：DAO + 開源整合 + V2 適配）
 
 ```text
-[CONTEXT & MEMORY - Read this first]
+[CONTEXT & MEMORY - Read this carefully before starting]
+
 Project: PolyAlpha Protocol (ISOM3270 Final Project)
 Working Directory: C:\Users\user\Desktop\Dev.items.folder\ISOM3270_Startup
+GitHub: YongWilliam-ai/polyalpha-protocol (private)
 
-What happened in the previous session:
-1. You (Claude Code) wrote ALPHAStakingPool.sol and PALPHABuybackBurn.sol - both compile cleanly.
-2. You upgraded agent/btc_signal.py with dual_source_oracle_check() and monte_carlo_kelly() (10,000 paths).
-3. All 26 Solidity files compile successfully (Solidity 0.8.25, evmVersion: cancun).
-4. Manus pushed everything to GitHub: YongWilliam-ai/polyalpha-protocol
+== What has been completed ==
+1. All 5 core contracts written and COMPILED successfully (26 Solidity files, evm target: cancun)
+2. Contracts DEPLOYED to ChainLab Testnet (chainId: 31337):
+   - MockUSDC:          0x77D7D52eE789B7C6bcD94eb87e2391BBb94A8D0a
+   - PALPHAToken:       0x36381Cd13C9030Eb7dfa7C274837115370FEcdbF
+   - PolyAlphaVault:    0x1c275054C7159aBBF446E652A744EFB8cbf6efd0
+   - ALPHAStakingPool:  0xF8E9E3af72E1F673B21eCB4d96C99BF9c1D47832
+   - PALPHABuybackBurn: 0xEc33dBc9dFAa1c380863547C5bCB7597eD611Ea4
+3. Python Agent upgraded with dual_source_oracle_check() and monte_carlo_kelly()
+4. Frontend React dashboard skeleton complete (3 pages, config.js filled with addresses)
 
-Current contract inventory (all in contracts/):
-- PolyAlphaVault.sol     (ERC-4626 vault)
-- PALPHAToken.sol        (10M max supply ERC-20)
-- MockUSDC.sol           (testnet USDC)
-- ALPHAStakingPool.sol   (10% APY staking, pre-funded)
-- PALPHABuybackBurn.sol  (depositForBurn + executeBurn)
+== IMPORTANT: Polymarket V2 launched April 22, 2026 ==
+- V1 is DEAD. New collateral is pUSD (not USDC.e)
+- New SDK: py-clob-client-v2
+- New order fields: timestamp + builder (nonce/feeRateBps removed)
+- Our Vault contract is NOT affected (we use MockUSDC as simulation)
+- But our agent's Polymarket data fetching MUST be updated
 
-[TASK - What you need to do now]
+== Open-source research completed by Manus ==
+Manus analyzed 22 GitHub/X links. Top resources for integration:
+1. runesleo/polymarket-toolkit - AI tools for Polymarket analysis (updated for V2 on Apr 22)
+2. duolaAmengweb3/bgtask (BitPilot) - 7x24 daemon + 6-step safety chain
+3. runes_leo PnL research - Cash-flow based PnL calculation (fixes official API bugs)
+4. runesleo/claude-code-workflow - Memory management for Claude Code sessions
 
-Task 1: Write contracts/PolyAlphaDAO.sol
-- createProposal(description, targetContract, callData) - requires 1,000 PALPHA to propose
-- vote(proposalId, support) - 1 PALPHA = 1 vote
-- executeProposal(proposalId) - only executable after 48-hour timelock AND majority YES votes
-- cancelProposal(proposalId) - only by proposer if not yet executed
-- Voting period: 48 hours
-- Quorum: at least 100,000 PALPHA votes total
+[TASK - Three tasks in priority order]
 
-Task 2: Update scripts/deploy.js to deploy all 5 contracts in order:
-  1. MockUSDC
-  2. PALPHAToken
-  3. PolyAlphaVault (args: MockUSDC address, PALPHAToken address, agent wallet address)
-  4. ALPHAStakingPool (args: PALPHAToken address)
-  5. PALPHABuybackBurn (args: PALPHAToken address)
+TASK 1 (CRITICAL): Write contracts/PolyAlphaDAO.sol
+Requirements:
+- createProposal(string description, address targetContract, bytes callData)
+  → requires proposer to hold >= 1,000 PALPHA
+- vote(uint256 proposalId, bool support)
+  → 1 PALPHA = 1 vote, snapshot at proposal creation
+- executeProposal(uint256 proposalId)
+  → only after 48-hour timelock AND quorum met AND majority YES
+- cancelProposal(uint256 proposalId)
+  → only by original proposer, only if not yet executed
+- Voting period: 48 hours from proposal creation
+- Quorum: minimum 100,000 PALPHA total votes
+- ASCII-only in comments and strings (NO Unicode chars)
+- Solidity 0.8.25, OpenZeppelin v5
+
+TASK 2 (IMPORTANT): Update scripts/deploy.js
+Add PolyAlphaDAO deployment as step 6:
   6. PolyAlphaDAO (args: PALPHAToken address)
-  Print all addresses at the end in a clear format.
+Print all 6 addresses at the end.
 
-[CONSTRAINTS]
-- Solidity version: exactly 0.8.25 (no caret)
-- evmVersion: cancun (already set in hardhat.config.js, do not change)
+TASK 3 (UPGRADE): Update agent/agent.py for Polymarket V2
+- Add a comment block explaining V2 migration at the top of the file
+- Add a function get_polymarket_v2_price(market_id) that uses the new
+  py-clob-client-v2 SDK structure (even if just a stub with TODO comment)
+- Add a safety_check_chain() function inspired by BitPilot's 6-step model:
+  Step 1: Check signal confidence >= threshold
+  Step 2: Check position size within Kelly fraction
+  Step 3: Check circuit breaker not triggered
+  Step 4: Check oracle cross-validation (dual source)
+  Step 5: Check daily loss limit not exceeded
+  Step 6: Log decision with timestamp before execution
+- This function should be called before any trade execution in the main loop
+
+[CONSTRAINTS - Do NOT violate]
+- Solidity: exactly 0.8.25 (no caret ^)
+- evmVersion: cancun (in hardhat.config.js, do NOT change)
 - OpenZeppelin v5 only
-- ASCII-only in all .sol files (no Unicode chars like em dash, box drawing, etc.)
-- Do NOT modify any existing contracts
+- ASCII-only in ALL .sol files
+- Do NOT modify PolyAlphaVault.sol, PALPHAToken.sol, or any already-deployed contract
+- Do NOT change hardhat.config.js network settings
 
 [WORKFLOW]
-When done, run npm run compile to verify (should show 27+ files), then tell William:
-"DAO contract and deploy script are ready. Please run npm run push to sync with GitHub."
+1. Complete all 3 tasks
+2. Run: npm run compile (should show 27+ Solidity files successfully)
+3. Tell William: "All 3 tasks complete. Please run: npm run push"
 ```
-
----
-
-## 重要技術規格（Claude Code 必須遵守）
-
-- **Solidity 版本**：`0.8.25`（不能用 0.8.20/0.8.24！OpenZeppelin v5 Memory.sol 的 mcopy opcode 需要 0.8.25）
-- **EVM 版本**：`cancun`（不能省略！mcopy 是 EIP-5656 Cancun 指令）
-- **OpenZeppelin 版本**：v5（已安裝）
-- **測試網**：Polygon Amoy（chainId: 80002）
-- **Token 供應量**：10M max supply，3M initial mint（不能改）
-- **Agent 模式**：Dry-run 模式（VAULT_CONTRACT_ADDRESS 未設定時自動啟用）
-- **信號引擎**：Binance 動量規則（不用 GPT-4o，避免 API 成本）
