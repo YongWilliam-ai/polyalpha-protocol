@@ -19,13 +19,13 @@
 | 合約：MockUSDC.sol | ✅ 已完成 | Testnet USDC |
 | 合約：ALPHAStakingPool.sol | ✅ 已完成 | Synthetix-style 10% APY |
 | 合約：PALPHABuybackBurn.sol | ✅ 已完成 | depositForBurn() + executeBurn() |
-| 合約：PolyAlphaDAO.sol | ⏳ 待 Claude 寫 | 第二個 5 小時週期任務 |
+| 合約：PolyAlphaDAO.sol | ⏳ 待 Claude 寫 | 第三週期任務 |
 | 部署網絡 | ✅ ChainLab Testnet | chainId: 31337, RPC: https://testnet.chainlab.fun |
 | 部署狀態 | ✅ 5 個合約已部署 | 見下方地址 |
 | Python Agent | ✅ V2 已升級 | dual_source_oracle_check() + monte_carlo_kelly() |
 | 前端 Dashboard | ✅ 已配置合約地址 | 3 個頁面 + config.js 已填入地址 |
-| 前端 $PALPHA Hub | ⏳ 待 Manus 建 | 質押/治理/回購頁面 |
-| 回測報告 | ⏳ 待執行 | python backtest.py |
+| 前端 $PALPHA Hub | ⏳ 待 Claude 建 | 質押/治理/回購頁面 |
+| 回測報告 | ✅ 已執行 | synthetic demo 數據已生成 |
 | Polygonscan API Key | ✅ 已設定 | ACE4F5VKZJYRCW8MHWGZ816W9ZI5VPCQJ9 |
 
 ---
@@ -119,21 +119,23 @@ polyalpha-protocol/
 ## 下一步行動清單
 
 ### William 需要做（按順序）
-1. 在 VS Code 終端機執行：`cd frontend && npm install && npm start`
-2. 截圖前端畫面給 Manus 確認
-3. 把「Claude Code 第三週期 Prompt」（見下方）貼給 Claude Code
+1. 確認前端 Backtest 頁面已能正常顯示圖表
+2. 把「Claude Code 第三週期 Prompt（DAO + Hub）」貼給 Claude Code 執行
+3. 執行完畢後，執行 `git push` 並回報 Manus
 
 ### Claude Code 需要做（第三週期）
-- 見下方完整 Prompt
-
-### Manus 需要做（等 William 確認前端可以跑後）
+- 撰寫並部署 `PolyAlphaDAO.sol`
+- 更新 `frontend/src/config.js` 加入 DAO 地址
 - 建立 `frontend/src/pages/PALPHAHubPage.js`（質押/治理/回購）
 - 更新 `frontend/src/App.js` 加入第四個 Tab
-- 執行回測並生成 equity curve 圖表
+
+### Manus 需要做（等 William push 後）
+- 審查 DAO 合約和前端代碼
+- 準備第四週期 Prompt（Python Agent 的開源整合：polymarket-toolkit, BitPilot, daily-news MCP）
 
 ---
 
-## Claude Code 第三週期 Prompt（合併版：DAO + 開源整合 + V2 適配）
+## Claude Code 第三週期 Prompt（DAO 部署 + $PALPHA Hub 前端）
 
 ```text
 [CONTEXT & MEMORY - Read this carefully before starting]
@@ -142,65 +144,42 @@ Project: PolyAlpha Protocol (ISOM3270 Final Project)
 Working Directory: C:\Users\user\Desktop\Dev.items.folder\ISOM3270_Startup
 GitHub: YongWilliam-ai/polyalpha-protocol (private)
 
-== What has been completed ==
-1. All 5 core contracts written and COMPILED successfully (26 Solidity files, evm target: cancun)
-2. Contracts DEPLOYED to ChainLab Testnet (chainId: 31337):
-   - MockUSDC:          0x77D7D52eE789B7C6bcD94eb87e2391BBb94A8D0a
-   - PALPHAToken:       0x36381Cd13C9030Eb7dfa7C274837115370FEcdbF
-   - PolyAlphaVault:    0x1c275054C7159aBBF446E652A744EFB8cbf6efd0
-   - ALPHAStakingPool:  0xF8E9E3af72E1F673B21eCB4d96C99BF9c1D47832
-   - PALPHABuybackBurn: 0xEc33dBc9dFAa1c380863547C5bCB7597eD611Ea4
-3. Python Agent upgraded with dual_source_oracle_check() and monte_carlo_kelly()
-4. Frontend React dashboard skeleton complete (3 pages, config.js filled with addresses)
+== What has happened so far ==
+1. All 5 core contracts are DEPLOYED to ChainLab Testnet.
+2. Manus (the QA AI) has successfully fixed the `backtest.py` script. The `--source dummy` mode now correctly generates `backtest_summary.json` and `equity_curve.csv` with synthetic demo data.
+3. William has pulled the fix and generated the files for the frontend.
+4. The frontend Backtest page is now working perfectly.
 
-== IMPORTANT: Polymarket V2 launched April 22, 2026 ==
-- V1 is DEAD. New collateral is pUSD (not USDC.e)
-- New SDK: py-clob-client-v2
-- New order fields: timestamp + builder (nonce/feeRateBps removed)
-- Our Vault contract is NOT affected (we use MockUSDC as simulation)
-- But our agent's Polymarket data fetching MUST be updated
+== Current Task Goal ==
+We need to complete the final smart contract (`PolyAlphaDAO.sol`), deploy it, and build the final frontend page (`PALPHAHubPage.js`) for staking, governance, and buyback history.
 
-== Open-source research completed by Manus ==
-Manus analyzed 22 GitHub/X links. Top resources for integration:
-1. runesleo/polymarket-toolkit - AI tools for Polymarket analysis (updated for V2 on Apr 22)
-2. duolaAmengweb3/bgtask (BitPilot) - 7x24 daemon + 6-step safety chain
-3. runes_leo PnL research - Cash-flow based PnL calculation (fixes official API bugs)
-4. runesleo/claude-code-workflow - Memory management for Claude Code sessions
-
-[TASK - Three tasks in priority order]
-
-TASK 1 (CRITICAL): Write contracts/PolyAlphaDAO.sol
-Requirements:
-- createProposal(string description, address targetContract, bytes callData)
-  → requires proposer to hold >= 1,000 PALPHA
-- vote(uint256 proposalId, bool support)
-  → 1 PALPHA = 1 vote, snapshot at proposal creation
-- executeProposal(uint256 proposalId)
-  → only after 48-hour timelock AND quorum met AND majority YES
-- cancelProposal(uint256 proposalId)
-  → only by original proposer, only if not yet executed
+[TASK 1: Write and Deploy PolyAlphaDAO.sol]
+Write `contracts/PolyAlphaDAO.sol` with the following specs:
+- `createProposal(string description, address targetContract, bytes callData)` → requires proposer to hold >= 1,000 PALPHA
+- `vote(uint256 proposalId, bool support)` → 1 PALPHA = 1 vote, snapshot at proposal creation
+- `executeProposal(uint256 proposalId)` → only after 48-hour timelock AND quorum met AND majority YES
+- `cancelProposal(uint256 proposalId)` → only by original proposer, only if not yet executed
 - Voting period: 48 hours from proposal creation
 - Quorum: minimum 100,000 PALPHA total votes
 - ASCII-only in comments and strings (NO Unicode chars)
 - Solidity 0.8.25, OpenZeppelin v5
 
-TASK 2 (IMPORTANT): Update scripts/deploy.js
-Add PolyAlphaDAO deployment as step 6:
-  6. PolyAlphaDAO (args: PALPHAToken address)
-Print all 6 addresses at the end.
+Then, update `scripts/deploy.js` to deploy PolyAlphaDAO as step 6 (args: PALPHAToken address).
+Run the deployment script on ChainLab Testnet (`npm run deploy:chainlab` or `npx hardhat run scripts/deploy.js --network chainlab`).
+Save the deployed DAO address.
 
-TASK 3 (UPGRADE): Update agent/agent.py for Polymarket V2
-- Add a comment block explaining V2 migration at the top of the file
-- Add a function get_polymarket_v2_price(market_id) that uses the new
-  py-clob-client-v2 SDK structure (even if just a stub with TODO comment)
-- Add a safety_check_chain() function inspired by BitPilot's 6-step model:
-  Step 1: Check signal confidence >= threshold
-  Step 2: Check position size within Kelly fraction
-  Step 3: Check circuit breaker not triggered
-  Step 4: Check oracle cross-validation (dual source)
-  Step 5: Check daily loss limit not exceeded
-  Step 6: Log decision with timestamp before execution
-- This function should be called before any trade execution in the main loop
+[TASK 2: Update Frontend Config]
+Update `frontend/src/config.js`:
+- Add `export const DAO_ADDRESS = "your_deployed_address";`
+- Add `export const DAO_ABI = [ ... ];` with the necessary functions (createProposal, vote, executeProposal, etc.).
+
+[TASK 3: Build PALPHAHubPage.js]
+Create `frontend/src/pages/PALPHAHubPage.js`. This page should have 3 sections (can use tabs or vertical layout):
+1. **Staking**: Show user's staked balance, earned rewards, and total staked in the pool. Provide Stake/Unstake/Claim buttons (connect to `STAKING_ADDRESS`).
+2. **Governance**: List active/past proposals (can use mock data if no events exist yet) and provide a "Create Proposal" button (connect to `DAO_ADDRESS`).
+3. **Buyback & Burn**: Show `totalAlphaBurned` and `pendingBurn` from the `BUYBACK_ADDRESS` contract.
+
+Update `frontend/src/App.js` to include this new page as the 4th tab in the navigation.
 
 [CONSTRAINTS - Do NOT violate]
 - Solidity: exactly 0.8.25 (no caret ^)
@@ -208,12 +187,15 @@ TASK 3 (UPGRADE): Update agent/agent.py for Polymarket V2
 - OpenZeppelin v5 only
 - ASCII-only in ALL .sol files
 - Do NOT modify PolyAlphaVault.sol, PALPHAToken.sol, or any already-deployed contract
-- Do NOT change hardhat.config.js network settings
 
 [WORKFLOW]
-1. Complete all 3 tasks
-2. Run: npm run compile (should show 27+ Solidity files successfully)
-3. Tell William: "All 3 tasks complete. Please run: npm run push"
+1. Complete all 3 tasks.
+2. Run `npm run compile` to ensure contracts compile.
+3. Run `cd frontend && npm run build` to ensure React compiles.
+4. Tell William: "DAO contract deployed and PALPHA Hub page built. Please run:
+git add -A
+git commit -m 'feat: deploy DAO and build PALPHA Hub frontend'
+git push origin main"
 ```
 
 ---
