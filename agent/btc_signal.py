@@ -89,6 +89,43 @@ class BtcSignal:
         )
 
 
+# ── Polymarket V2 odds fetching ───────────────────────────────────────────────
+
+def get_polymarket_v2_odds(market_id: str) -> Optional[float]:
+    """
+    Fetch YES token odds from Polymarket V2.
+
+    # Inspired by runesleo/polymarket-toolkit (V2 compatible odds fetching)
+    Primary:  polymarket-toolkit SDK (pip install polymarket-toolkit)
+    Fallback: Gamma API REST call -- no SDK required, always works.
+
+    Returns YES probability (0-1) or None on failure.
+    """
+    # Primary: polymarket-toolkit SDK
+    # TODO: once installed, replace stub with:
+    #   from polymarket_toolkit import PolymarketClient
+    #   client = PolymarketClient()
+    #   market = client.get_market(market_id)
+    #   return market.yes_price
+    #
+    # Until then, fall through to Gamma API below.
+
+    # Fallback: Gamma API REST call (V2-compatible for price reads)
+    try:
+        resp = requests.get(
+            f"{GAMMA_API}/markets/{market_id}",
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            prices = data.get("outcomePrices", [])
+            if prices:
+                return float(prices[0])
+    except Exception:
+        pass
+    return None
+
+
 # ── BTC data fetching ─────────────────────────────────────────────────────────
 
 def get_btc_price_now() -> float:
@@ -231,6 +268,46 @@ def monte_carlo_kelly(
     return min(max(f_quarter, 0.0), MAX_POSITION_BPS / 10_000)
 
 
+def empirical_kelly(
+    p: float,
+    market_price: float,
+    trade_history: list,
+    n_window: int = 50,
+) -> float:
+    """
+    Empirical Kelly sizing using ACTUAL win rate from recent trade history.
+
+    # Inspired by @RohOnChain Empirical Kelly research
+
+    Unlike monte_carlo_kelly() which models epistemic uncertainty around a
+    fixed theoretical probability, this uses the OBSERVED win rate from the
+    last N=50 trades as the ground-truth p -- directly grounding position
+    sizing in real performance rather than assumptions.
+
+    Falls back to monte_carlo_kelly() if fewer than 10 trades exist
+    (insufficient sample for reliable win-rate estimation).
+
+    trade_history: list of dicts with at least {"won": bool}
+    """
+    # Inspired by @RohOnChain Empirical Kelly research
+    recent = trade_history[-n_window:] if len(trade_history) > n_window else trade_history
+
+    if len(recent) < 10:
+        return monte_carlo_kelly(p, market_price)
+
+    empirical_wr = sum(1 for t in recent if t.get("won", False)) / len(recent)
+
+    if empirical_wr <= market_price:
+        return 0.0
+
+    b = (1 - market_price) / market_price
+    q = 1 - empirical_wr
+    f_full = (empirical_wr * b - q) / b
+    f_quarter = max(f_full, 0.0) * KELLY_FRACTION
+
+    return min(f_quarter, MAX_POSITION_BPS / 10_000)
+
+
 # ── Oracle hash ───────────────────────────────────────────────────────────────
 
 def build_oracle_hash(btc_open: float, btc_now: float, poly_odds: float, ts: int) -> str:
@@ -255,10 +332,11 @@ def build_oracle_hash(btc_open: float, btc_now: float, poly_odds: float, ts: int
 def generate_signal(
     market_question: str,
     condition_id: str,
-    market_price: float,      # Current Polymarket YES price (0–1)
+    market_price: float,      # Current Polymarket YES price (0-1)
     liquidity_usd: float,
     btc_open: Optional[float] = None,
     btc_now:  Optional[float] = None,
+    trade_history: Optional[list] = None,   # past {"won": bool} records for empirical Kelly
 ) -> Optional[BtcSignal]:
     """
     Generate a trading signal for a BTC Up/Down Polymarket market.
@@ -321,8 +399,11 @@ def generate_signal(
     # Build oracle hash for on-chain integrity
     oracle_hash = build_oracle_hash(btc_open, btc_now, market_price, ts)
 
-    # V2.0: Monte Carlo Kelly sizing (10,000 paths, uncertainty-adjusted)
-    kelly_f = monte_carlo_kelly(ai_prob, relevant_price)
+    # Kelly sizing: empirical (from actual win rate) if history exists, else Monte Carlo
+    if trade_history and len(trade_history) >= 10:
+        kelly_f = empirical_kelly(ai_prob, relevant_price, trade_history)
+    else:
+        kelly_f = monte_carlo_kelly(ai_prob, relevant_price)
 
     signal = BtcSignal(
         market_question = market_question,

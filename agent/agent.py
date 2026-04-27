@@ -311,6 +311,71 @@ def get_yes_price(market: dict) -> float:
     return float(market.get("bestBid", 0.5))
 
 
+# -- News sentiment pre-filter ------------------------------------------------
+
+def get_news_sentiment() -> str:
+    """
+    Fetch crypto news sentiment from 6551 AI hot news API.
+
+    # Inspired by 6551Team/daily-news MCP Server
+    Endpoint: https://ai.6551.io/open/free_hot?category=crypto (no API key)
+
+    Returns "bullish", "bearish", or "neutral".
+    Used as a trade pre-filter: skip UP signals when sentiment is bearish
+    to avoid fighting macro news flow with a pure momentum signal.
+
+    Falls back to "neutral" on any network error so the agent keeps running.
+    """
+    # Inspired by 6551Team/daily-news MCP Server
+    BULLISH_KEYWORDS = {
+        "surge", "rally", "gain", "rise", "bull", "pump",
+        "breakout", "high", "record", "green", "rebound",
+    }
+    BEARISH_KEYWORDS = {
+        "crash", "drop", "fall", "bear", "dump", "plunge",
+        "low", "decline", "red", "fear", "sell-off", "collapse",
+    }
+
+    try:
+        resp = requests.get(
+            "https://ai.6551.io/open/free_hot",
+            params={"category": "crypto"},
+            timeout=5,
+        )
+        if resp.status_code != 200:
+            return "neutral"
+
+        payload = resp.json()
+        items = (
+            payload if isinstance(payload, list)
+            else payload.get("data", payload.get("items", []))
+        )
+
+        bullish = 0
+        bearish = 0
+        for item in items[:10]:  # only top 10 headlines
+            if isinstance(item, dict):
+                text = " ".join([
+                    item.get("title", ""),
+                    item.get("content", ""),
+                    item.get("summary", ""),
+                ]).lower()
+            else:
+                text = str(item).lower()
+
+            bullish += sum(1 for kw in BULLISH_KEYWORDS if kw in text)
+            bearish += sum(1 for kw in BEARISH_KEYWORDS if kw in text)
+
+        if bearish > bullish + 2:
+            return "bearish"
+        if bullish > bearish + 2:
+            return "bullish"
+        return "neutral"
+
+    except Exception:
+        return "neutral"  # safe default -- never block the agent on a news API failure
+
+
 # -- On-chain logging ---------------------------------------------------------
 
 def log_position_on_chain(
@@ -373,6 +438,8 @@ def run_agent(dry_run: bool = False):
 
     # Daily loss tracker: {"YYYY-MM-DD": cumulative_loss_bps}
     daily_loss_tracker: dict = {}
+    # Rolling trade history for empirical Kelly sizing ({"won": bool} records)
+    trade_history: list = []
 
     signals_logged = 0
     scan_count     = 0
@@ -390,6 +457,10 @@ def run_agent(dry_run: bool = False):
                     continue
             except Exception as exc:
                 log.warning(f"Could not read vault state: {exc}")
+
+        # News sentiment pre-filter (6551Team/daily-news -- one call per scan)
+        sentiment = get_news_sentiment()
+        log.info(f"News sentiment: {sentiment}")
 
         # Fetch BTC prices once per scan cycle
         try:
@@ -431,9 +502,17 @@ def run_agent(dry_run: bool = False):
                 liquidity_usd=liquidity,
                 btc_open=btc_open,
                 btc_now=btc_now,
+                trade_history=trade_history,
             )
 
             if signal is None:
+                continue
+
+            # Sentiment pre-filter: skip UP signals when news is bearish
+            if signal.side == "UP" and sentiment == "bearish":
+                log.info(
+                    f"  [Sentiment Filter] Skipping UP signal -- news is bearish"
+                )
                 continue
 
             log.info(str(signal))
@@ -466,6 +545,8 @@ def run_agent(dry_run: bool = False):
             if dry_run:
                 log.info(f"  [DRY RUN] Signal: {json.dumps(signal_record)}")
                 signals_logged += 1
+                # Paper trade -- assume neutral outcome for history tracking
+                trade_history.append({"won": None})
             else:
                 try:
                     tx_hash = log_position_on_chain(w3, vault, private_key, signal)

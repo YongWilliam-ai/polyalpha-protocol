@@ -217,17 +217,31 @@ def run_backtest(markets: list[dict], hypothesis_id: str = HYPOTHESIS_ID) -> dic
     """
     Cash-flow based backtest with Hypothesis Validation Framework.
 
-    PnL model (runes_leo method):
-      balance   = starting balance
-      bet_size  = kelly_fraction * balance       (e.g. 5% of $1000 = $50)
-      shares    = bet_size / market_price        (shares bought)
-      cost      = shares * market_price = bet_size
-      payout    = shares * 1.0  if won, else 0.0
-      cash_pnl  = payout - cost
+    ===================================================================
+    PnL MODEL: runes_leo cash-flow method
+    ===================================================================
+    Inspired by runes_leo's 14,000-word Polymarket quant retrospective,
+    which identified that simple odds-difference PnL (close - open) is
+    wrong for binary prediction markets. The correct model is:
 
-    Kill criteria:
-      WR < 52% after 50 trades  -> KILL
-      Drawdown > 15%             -> KILL
+      balance   = current paper portfolio value  (starts at $1,000)
+      bet_size  = kelly_fraction * balance       (e.g. 2% of $1,000 = $20)
+      shares    = bet_size / market_price        (shares bought at YES price)
+      cost      = shares * market_price          (= bet_size, what you pay)
+      payout    = shares * $1.00  if won         (binary resolution: $1 per share)
+               = 0.0             if lost
+      cash_pnl  = payout - cost                 (real cash in, cash out)
+
+    Why NOT odds-difference (price_close - price_open)?
+      - Binary markets resolve to 0 or 1, not to a final price
+      - Ghost trades (~18.3% of Gamma API markets) never resolve,
+        inflating PnL if you use unrealized price appreciation
+      - Cash-flow model is immune: we only count settled payouts
+    ===================================================================
+
+    Kill criteria (Hypothesis Validation Framework):
+      WR < 52% after 50 trades  -> KILL (no statistical edge)
+      Drawdown > 15%             -> KILL (risk limit breached)
     """
     balance      = STARTING_BALANCE
     peak_balance = STARTING_BALANCE
