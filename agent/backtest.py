@@ -76,6 +76,8 @@ KILL_WIN_RATE_PCT   = 52.0                 # Below this -> KILL (win rate criter
 KILL_MIN_TRADES     = 50                   # Minimum trades before win-rate check
 KILL_DRAWDOWN_PCT   = 15.0                 # Above this drawdown -> KILL
 STARTING_BALANCE    = 1_000.0              # Paper portfolio starting balance ($)
+SLIPPAGE_SIM_PCT    = 0.005                # Simulated slippage per trade: 0.5% of bet_size
+SLIPPAGE_PAUSE_PCT  = 2.0                  # Avg slippage above this -> PAUSE flag in summary
 
 
 # -- Data loading -------------------------------------------------------------
@@ -239,9 +241,13 @@ def run_backtest(markets: list[dict], hypothesis_id: str = HYPOTHESIS_ID) -> dic
       - Cash-flow model is immune: we only count settled payouts
     ===================================================================
 
-    Kill criteria (Hypothesis Validation Framework):
-      WR < 52% after 50 trades  -> KILL (no statistical edge)
-      Drawdown > 15%             -> KILL (risk limit breached)
+    Kill / Pause criteria (Hypothesis Validation Framework):
+      WR < 52% after 50 trades  -> KILL  (no statistical edge)
+      Drawdown > 15%             -> KILL  (risk limit breached)
+      Avg slippage > 2%          -> PAUSE (flag in summary, strategy continues)
+
+    # Inspired by runes_leo Cash-Flow PnL research
+    # Inspired by runes_leo Hypothesis Validation Framework
     """
     balance      = STARTING_BALANCE
     peak_balance = STARTING_BALANCE
@@ -249,6 +255,8 @@ def run_backtest(markets: list[dict], hypothesis_id: str = HYPOTHESIS_ID) -> dic
     kill_reason  = None
     killed_at    = None
     skipped      = 0
+    total_slippage_cost = 0.0   # cumulative simulated slippage
+    total_bet_volume    = 0.0   # cumulative bet_size (denominator for avg slippage)
 
     for market in markets:
         raw = simulate_signal_from_market(market)
@@ -265,7 +273,11 @@ def run_backtest(markets: list[dict], hypothesis_id: str = HYPOTHESIS_ID) -> dic
         payout       = shares * 1.0 if raw["won"] else 0.0
         cash_pnl     = payout - cost
 
-        balance += cash_pnl
+        # Simulated slippage: 0.5% of bet_size deducted regardless of outcome
+        slippage_cost        = bet_size * SLIPPAGE_SIM_PCT
+        balance             += cash_pnl - slippage_cost
+        total_slippage_cost += slippage_cost
+        total_bet_volume    += bet_size
         if balance > peak_balance:
             peak_balance = balance
 
@@ -338,6 +350,12 @@ def run_backtest(markets: list[dict], hypothesis_id: str = HYPOTHESIS_ID) -> dic
         "avg_edge_pct":      round(float(df["edge_bps"].mean()) / 100, 2),
         "avg_kelly_pct":     round(float(df["kelly_bps"].mean()) / 100, 2),
         "skipped_markets":   skipped,
+        "avg_slippage_pct":  round(
+            total_slippage_cost / max(total_bet_volume, 1e-9) * 100, 3
+        ),
+        "high_slippage_flag": (
+            total_slippage_cost / max(total_bet_volume, 1e-9) * 100 > SLIPPAGE_PAUSE_PCT
+        ),
     }
 
     # Save equity curve for dashboard
@@ -349,8 +367,8 @@ def run_backtest(markets: list[dict], hypothesis_id: str = HYPOTHESIS_ID) -> dic
         "cumulative_pnl_pct": [(t["balance_after"] - STARTING_BALANCE) / STARTING_BALANCE * 100
                                for t in trades],
     })
-    equity_df.to_csv(RESULTS_DIR / "equity_curve.csv", index=False)
-    df.to_csv(RESULTS_DIR / "backtest_trades.csv", index=False)
+    equity_df.to_csv(RESULTS_DIR / f"{hypothesis_id}_equity_curve.csv", index=False)
+    df.to_csv(RESULTS_DIR / f"{hypothesis_id}_backtest_trades.csv", index=False)
 
     return results
 
@@ -408,13 +426,21 @@ def _write_autopsy_report(
 
         f.write("\n--- Why this hypothesis died ---\n")
         if "WIN_RATE" in kill_reason:
+            recommendation = (
+                "RECOMMENDATION: Discard hypothesis"
+                if wr < 44.0 else
+                "RECOMMENDATION: Revise hypothesis"
+            )
             f.write(
                 f"The strategy win rate fell below {KILL_WIN_RATE_PCT}% after "
                 f"{KILL_MIN_TRADES}+ trades.\n"
                 f"This means the BTC 7-minute momentum signal does NOT have\n"
                 f"statistically significant edge over Polymarket implied probability.\n\n"
-                f"Per runes_leo's framework: revise or discard the hypothesis.\n"
+                f"{recommendation}\n"
+                f"  WR < 44%: clear negative edge -- Discard entirely\n"
+                f"  WR 44-52%: marginal edge -- Revise parameters and retest\n\n"
                 f"Do NOT keep trading a dead strategy.\n"
+                f"# Inspired by runes_leo Hypothesis Validation Framework\n"
             )
         elif "DRAWDOWN" in kill_reason:
             f.write(
@@ -423,8 +449,10 @@ def _write_autopsy_report(
                 f"  1. Kelly sizing too aggressive for signal quality\n"
                 f"  2. Momentum model is miscalibrated for this market regime\n"
                 f"  3. Systematic slippage / data quality issue\n\n"
-                f"Per runes_leo's framework: cut losses, write down the death cause,\n"
-                f"use it to improve the next hypothesis.\n"
+                f"RECOMMENDATION: Revise hypothesis\n"
+                f"  Drawdown exceeds risk limit but does not disprove the signal;\n"
+                f"  reduce Kelly fraction or raise EDGE_MIN_BPS before retrying.\n\n"
+                f"# Inspired by runes_leo Hypothesis Validation Framework\n"
             )
 
     print(f"\nAUTOPSY REPORT -> {report_path}")
@@ -642,9 +670,13 @@ def run_dummy_test(hypothesis_id: str) -> None:
         "note":              "Generated by --source dummy for frontend demo. Not real trade data.",
     }
 
+    # Hypothesis-named files (Hypothesis Validation Framework)
+    with open(RESULTS_DIR / f"{hypothesis_id}_summary.json", "w") as f:
+        json.dump(syn_summary, f, indent=2)
+    # Generic-named copies for React dashboard backward compatibility
     with open(RESULTS_DIR / "backtest_summary.json", "w") as f:
         json.dump(syn_summary, f, indent=2)
-    print(f"  Summary saved: data/backtest_summary.json")
+    print(f"  Summary saved: data/{hypothesis_id}_summary.json")
 
     syn_equity_df = pd.DataFrame({
         "trade_number":       range(1, n_syn + 1),
@@ -653,11 +685,12 @@ def run_dummy_test(hypothesis_id: str) -> None:
         "cumulative_pnl_pct": [(t["balance_after"] - STARTING_BALANCE) / STARTING_BALANCE * 100
                                for t in syn_trades],
     })
+    syn_equity_df.to_csv(RESULTS_DIR / f"{hypothesis_id}_equity_curve.csv", index=False)
     syn_equity_df.to_csv(RESULTS_DIR / "equity_curve.csv", index=False)
-    print(f"  Equity curve saved: data/equity_curve.csv")
+    print(f"  Equity curve saved: data/{hypothesis_id}_equity_curve.csv")
     print(f"  Synthetic run: {n_syn} trades, {round(syn_wr*100,1)}% win rate, "
           f"PnL {round(syn_pnl_pct,2):+.2f}%")
-    print("[Dummy Test] All output files generated. Copy to frontend/public/ to view.")
+    print(f"[Dummy Test] All output files generated. Copy data/{hypothesis_id}_*.* to frontend/public/ to view.")
 
 
 # -- Main ---------------------------------------------------------------------
@@ -700,10 +733,12 @@ def main() -> None:
     results = run_backtest(markets, hypothesis_id=hyp_id)
     print_backtest_report(results, source=args.source)
 
-    # Save summary JSON (read by React dashboard)
+    # Save hypothesis-named summary + generic copy for React dashboard
+    with open(RESULTS_DIR / f"{hyp_id}_summary.json", "w") as f:
+        json.dump(results, f, indent=2)
     with open(RESULTS_DIR / "backtest_summary.json", "w") as f:
         json.dump(results, f, indent=2)
-    print(f"\nSummary saved: data/backtest_summary.json")
+    print(f"\nSummary saved: data/{hyp_id}_summary.json")
 
     if results.get("hypothesis_status") == "KILLED":
         print(f"Autopsy saved: agent/logs/{hyp_id}_autopsy.txt")

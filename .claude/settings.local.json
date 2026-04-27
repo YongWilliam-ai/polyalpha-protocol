@@ -4,7 +4,9 @@
       "Bash(npx hardhat *)",
       "Bash(python agent/backtest.py --source dummy)",
       "Bash(pip install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(python agent/backtest.py --source dummy --hypothesis H1_BTC_Momentum)",
+      "Bash(python *)"
     ]
   }
 }
