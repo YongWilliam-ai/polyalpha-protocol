@@ -22,7 +22,7 @@
 | 合約：PolyAlphaDAO.sol | ✅ 已完成並部署 | `0x03C56c5bFc857694ECfdfCCa49456d67340E2BF0` (ChainLab) |
 | 部署網絡 | ✅ ChainLab Testnet | chainId: 31337, RPC: https://testnet.chainlab.fun |
 | 部署狀態 | ✅ 5 個合約已部署 | 見下方地址 |
-| Python Agent | ✅ V2 已升級 | dual_source_oracle_check() + monte_carlo_kelly() |
+| Python Agent | ✅ V2 已升級 | polymarket_v2_odds + empirical_kelly + news_sentiment (Period 4 完成) |
 | 前端 Dashboard | ✅ 已配置合約地址 | 3 個頁面 + config.js 已填入地址 |
 | 前端 $PALPHA Hub | ✅ 已完成 | Staking / Governance / Buyback & Burn 3 個 section |
 | 回測報告 | ✅ 已執行 | synthetic demo 數據已生成 |
@@ -121,17 +121,18 @@ polyalpha-protocol/
 ## 下一步行動清單
 
 ### William 需要做（按順序）
-1. 開一個新的 Claude Code 對話，把「Claude Code 第四週期 Prompt」貼給 Claude Code 執行
-2. 執行完畢後，執行 `git push` 並回報 Manus
+1. 在 Claude Code 輸入 `/compact`，然後貼上「Period 5 Prompt」（見下方）
+2. 執行完畢後，執行 `git pull origin main --rebase && git push origin main`
+3. 回報 Manus，Manus 會 QA 審查後提供 Period 6 Prompt
 
-### Claude Code 需要做（第四週期）
-- 升級 Python Agent：polymarket-toolkit V2 數據獲取
-- 加入 daily-news MCP 情緒過濾器
-- 升級 Monte Carlo Kelly 為 Empirical Kelly
-- 確認 6 步安全檢查鏈已在 agent.py 主迴圈中
+### Claude Code 需要做（Period 5）
+- 實作 Hypothesis Validation Framework（假設驗證框架）
+- 實作 Cash-Flow Based PnL 模型（runes_leo 方法）
+- 生成 Autopsy Report （策略死亡報告）
 
-### Manus 需要做（等 William push 後）
-- 審查 Python Agent 升級代碼
+### Manus 需要做（等 William push Period 5 後）
+- QA 審查 backtest.py 升級代碼
+- 提供 Period 6 Prompt（X 社交整合 + Dashboard 潤飾）
 - 開始準備 Final PDF Report 和 Demo Video 資料
 
 ---
@@ -289,5 +290,71 @@ Review backtest.py and confirm:
 3. Tell William: "Agent upgrade complete. Please run:
 git add -A
 git commit -m 'feat: Python Agent V2 upgrade - polymarket-toolkit + empirical kelly + news sentiment'
+git push origin main"
+```
+
+---
+
+## Claude Code Period 5 Prompt（假設驗證框架 + PnL 重構）
+
+> **操作指示**：在 Claude Code 輸入 `/compact`，然後貼上以下內容。
+
+```text
+[CONTEXT & MEMORY - Read this carefully before starting]
+
+Project: PolyAlpha Protocol (ISOM3270 Final Project)
+Working Directory: C:\Users\user\Desktop\Dev.items.folder\ISOM3270_Startup
+GitHub: YongWilliam-ai/polyalpha-protocol (private)
+
+== What has been completed ==
+1. All 6 contracts deployed to ChainLab Testnet.
+2. Frontend React dashboard: 4 pages (Vault, AI Signal Log, Backtest, PALPHA Hub).
+3. Python Agent V2 upgraded: polymarket_v2_odds + empirical_kelly + news_sentiment.
+4. backtest.py already has basic Kill Criteria and cash-flow PnL model.
+
+== Current Task Goal ==
+Upgrade `agent/backtest.py` to implement a full "Hypothesis Validation Framework" with
+structured Autopsy Reports, inspired by runes_leo's 14,000-word Polymarket retrospective.
+
+[TASK 1: Hypothesis Tracking]
+- The backtester must accept a `--hypothesis` flag (e.g., "H1_BTC_Momentum").
+- All output files must be named using the hypothesis ID:
+  * `agent/logs/{hypothesis_id}_autopsy.txt`
+  * `data/{hypothesis_id}_summary.json`
+  * `data/{hypothesis_id}_equity_curve.csv`
+- If `--hypothesis` is not provided, default to "H1_BTC_Momentum".
+
+[TASK 2: Enhanced Kill Criteria]
+Implement these kill conditions during the backtest loop:
+  * Win rate < 52% after 50+ trades -> KILL (hypothesis rejected)
+  * Max Drawdown > 15% -> KILL (risk limit breached)
+  * Simulated slippage > 2% average -> PAUSE (flag in summary, do not kill)
+
+[TASK 3: Structured Autopsy Report]
+When a strategy is KILLED, generate a detailed autopsy report at `agent/logs/{id}_autopsy.txt`:
+  * Which kill criterion was triggered
+  * At which trade number it was triggered
+  * Final win rate, PnL, and max drawdown at time of kill
+  * Recommendation: "Revise hypothesis" or "Discard hypothesis"
+  * Comment: "# Inspired by runes_leo Hypothesis Validation Framework"
+
+[TASK 4: Verify Cash-Flow PnL Comment]
+Confirm the existing cash-flow PnL model has a clear comment block explaining:
+  * WHY odds-difference (close - open) is wrong
+  * HOW the cash-flow model fixes it
+  * Credit: "# Inspired by runes_leo Cash-Flow PnL research"
+
+[CONSTRAINTS]
+- Do NOT modify any Solidity contracts or agent.py/btc_signal.py.
+- Ensure the Python code is clean, modular, and well-commented.
+
+[WORKFLOW]
+1. Update `agent/backtest.py`.
+2. Run: `python agent\backtest.py --source dummy --hypothesis H1_BTC_Momentum`
+   (should pass Kill Criteria test, generate autopsy, and produce output files)
+3. Tell William: "Period 5 Backtest engine upgraded. Please run:
+git add -A
+git commit -m 'feat: implement Hypothesis Validation Framework and structured Autopsy Reports'
+git pull origin main --rebase
 git push origin main"
 ```
