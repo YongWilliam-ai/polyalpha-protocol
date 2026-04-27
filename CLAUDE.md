@@ -68,7 +68,7 @@ Never push directly yourself. William must push.
 | PolyAlphaVault | `0x1c275054C7159aBBF446E652A744EFB8cbf6efd0` |
 | ALPHAStakingPool | `0xF8E9E3af72E1F673B21eCB4d96C99BF9c1D47832` |
 | PALPHABuybackBurn | `0xEc33dBc9dFAa1c380863547C5bCB7597eD611Ea4` |
-| PolyAlphaDAO | Not yet deployed (contract written, pending deploy) |
+| PolyAlphaDAO | `0x03C56c5bFc857694ECfdfCCa49456d67340E2BF0` |
 
 **IMPORTANT**: Do NOT modify the above addresses. They are live on testnet.
 
@@ -89,10 +89,10 @@ Never push directly yourself. William must push.
 - [x] frontend/ — React dashboard with Vault, AI Signal Log, Backtest pages
 
 ### Pending ⏳
-- [ ] Deploy PolyAlphaDAO.sol to testnet
-- [ ] Run backtest and generate backtest_summary.json + equity_curve.csv
-- [ ] Copy backtest output to frontend/public/
-- [ ] Add $PALPHA Hub page to frontend (staking, governance, buyback history)
+- [x] Deploy PolyAlphaDAO.sol to testnet (0x03C56c5bFc857694ECfdfCCa49456d67340E2BF0)
+- [x] Run backtest and generate backtest_summary.json + equity_curve.csv
+- [x] Copy backtest output to frontend/public/
+- [x] Add $PALPHA Hub page to frontend (staking, governance, buyback history)
 - [ ] Record 3-minute demo video
 - [ ] Write final PDF report
 

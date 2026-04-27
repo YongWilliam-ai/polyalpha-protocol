@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npx hardhat *)",
       "Bash(python agent/backtest.py --source dummy)",
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "Bash(npm run *)"
     ]
   }
 }

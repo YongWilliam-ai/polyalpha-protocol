@@ -63,3 +63,23 @@ export const BUYBACK_ABI = [
   "function totalAlphaBurned() view returns (uint256)",
   "event BuybackExecuted(uint256 usdcSpent, uint256 alphaBurned, uint256 timestamp)",
 ];
+
+export const DAO_ADDRESS = "0x03C56c5bFc857694ECfdfCCa49456d67340E2BF0";
+
+export const DAO_ABI = [
+  "function createProposal(string description, address targetContract, bytes callData) external returns (uint256 proposalId)",
+  "function vote(uint256 proposalId, bool support) external",
+  "function executeProposal(uint256 proposalId) external",
+  "function cancelProposal(uint256 proposalId) external",
+  "function getProposal(uint256 proposalId) view returns (address proposer, string description, address targetContract, uint256 createdAt, uint256 votingDeadline, uint256 forVotes, uint256 againstVotes, bool executed, bool canceled)",
+  "function isVotingOpen(uint256 proposalId) view returns (bool)",
+  "function proposalCount() view returns (uint256)",
+  "function hasVoted(uint256, address) view returns (bool)",
+  "function MIN_PROPOSAL_BALANCE() view returns (uint256)",
+  "function QUORUM() view returns (uint256)",
+  "function VOTING_PERIOD() view returns (uint256)",
+  "event ProposalCreated(uint256 indexed proposalId, address indexed proposer, string description, address targetContract)",
+  "event Voted(uint256 indexed proposalId, address indexed voter, bool support, uint256 weight)",
+  "event ProposalExecuted(uint256 indexed proposalId, address indexed executor)",
+  "event ProposalCanceled(uint256 indexed proposalId, address indexed proposer)",
+];
