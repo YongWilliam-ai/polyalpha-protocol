@@ -19,12 +19,12 @@
 | 合約：MockUSDC.sol | ✅ 已完成 | Testnet USDC |
 | 合約：ALPHAStakingPool.sol | ✅ 已完成 | Synthetix-style 10% APY |
 | 合約：PALPHABuybackBurn.sol | ✅ 已完成 | depositForBurn() + executeBurn() |
-| 合約：PolyAlphaDAO.sol | ⏳ 待 Claude 寫 | 第三週期任務 |
+| 合約：PolyAlphaDAO.sol | ✅ 已完成並部署 | `0x03C56c5bFc857694ECfdfCCa49456d67340E2BF0` (ChainLab) |
 | 部署網絡 | ✅ ChainLab Testnet | chainId: 31337, RPC: https://testnet.chainlab.fun |
 | 部署狀態 | ✅ 5 個合約已部署 | 見下方地址 |
 | Python Agent | ✅ V2 已升級 | dual_source_oracle_check() + monte_carlo_kelly() |
 | 前端 Dashboard | ✅ 已配置合約地址 | 3 個頁面 + config.js 已填入地址 |
-| 前端 $PALPHA Hub | ⏳ 待 Claude 建 | 質押/治理/回購頁面 |
+| 前端 $PALPHA Hub | ✅ 已完成 | Staking / Governance / Buyback & Burn 3 個 section |
 | 回測報告 | ✅ 已執行 | synthetic demo 數據已生成 |
 | Polygonscan API Key | ✅ 已設定 | ACE4F5VKZJYRCW8MHWGZ816W9ZI5VPCQJ9 |
 
@@ -39,6 +39,7 @@
 | PolyAlphaVault | `0x1c275054C7159aBBF446E652A744EFB8cbf6efd0` |
 | ALPHAStakingPool | `0xF8E9E3af72E1F673B21eCB4d96C99BF9c1D47832` |
 | PALPHABuybackBurn | `0xEc33dBc9dFAa1c380863547C5bCB7597eD611Ea4` |
+| PolyAlphaDAO | `0x03C56c5bFc857694ECfdfCCa49456d67340E2BF0` |
 
 > **注意**：部署在 ChainLab Testnet（非 Polygon Amoy）。如需部署到 Amoy，使用 `npm run deploy:amoy`。
 
@@ -88,9 +89,10 @@ polyalpha-protocol/
 │   ├── MockUSDC.sol            ✅ Testnet USDC
 │   ├── ALPHAStakingPool.sol    ✅ 10% APY staking
 │   ├── PALPHABuybackBurn.sol   ✅ depositForBurn + executeBurn
-│   └── PolyAlphaDAO.sol        ⏳ 待寫
+│   └── PolyAlphaDAO.sol        ✅ 48h timelock governance (deployed)
 ├── scripts/
-│   ├── deploy.js               ✅ 部署 5 個合約（需加 DAO）
+│   ├── deploy.js               ✅ 部署 5 個合約
+│   ├── deployDAO.js            ✅ 專門部署 PolyAlphaDAO
 │   └── auto-push.sh            ✅ Auto git push script
 ├── agent/
 │   ├── btc_signal.py           ✅ V2: dual_source_oracle + monte_carlo_kelly
@@ -99,13 +101,13 @@ polyalpha-protocol/
 │   └── test_connection.py      ✅ Connection tester
 ├── frontend/
 │   └── src/
-│       ├── config.js           ✅ 5 個合約地址已填入（ChainLab）
-│       ├── App.js              ✅ 3 個 Tab 導航
+│       ├── config.js           ✅ 6 個合約地址已填入（含 DAO）
+│       ├── App.js              ✅ 4 個 Tab 導航（含 PALPHA Hub）
 │       └── pages/
 │           ├── VaultPage.js        ✅ TVL stats + deposit/withdraw
 │           ├── PositionLogPage.js  ✅ On-chain signal log
 │           ├── BacktestPage.js     ✅ Equity curve chart
-│           └── PALPHAHubPage.js    ⏳ 待 Manus 建（質押/治理/回購）
+│           └── PALPHAHubPage.js    ✅ Staking / Governance / Buyback & Burn (425 lines)
 ├── hardhat.config.js           ✅ Solidity 0.8.25 + cancun + ChainLab network
 ├── package.json                ✅ npm scripts configured
 ├── .env                        ✅ 已填入所有環境變數
@@ -119,19 +121,18 @@ polyalpha-protocol/
 ## 下一步行動清單
 
 ### William 需要做（按順序）
-1. 確認前端 Backtest 頁面已能正常顯示圖表
-2. 把「Claude Code 第三週期 Prompt（DAO + Hub）」貼給 Claude Code 執行
-3. 執行完畢後，執行 `git push` 並回報 Manus
+1. 開一個新的 Claude Code 對話，把「Claude Code 第四週期 Prompt」貼給 Claude Code 執行
+2. 執行完畢後，執行 `git push` 並回報 Manus
 
-### Claude Code 需要做（第三週期）
-- 撰寫並部署 `PolyAlphaDAO.sol`
-- 更新 `frontend/src/config.js` 加入 DAO 地址
-- 建立 `frontend/src/pages/PALPHAHubPage.js`（質押/治理/回購）
-- 更新 `frontend/src/App.js` 加入第四個 Tab
+### Claude Code 需要做（第四週期）
+- 升級 Python Agent：polymarket-toolkit V2 數據獲取
+- 加入 daily-news MCP 情緒過濾器
+- 升級 Monte Carlo Kelly 為 Empirical Kelly
+- 確認 6 步安全檢查鏈已在 agent.py 主迴圈中
 
 ### Manus 需要做（等 William push 後）
-- 審查 DAO 合約和前端代碼
-- 準備第四週期 Prompt（Python Agent 的開源整合：polymarket-toolkit, BitPilot, daily-news MCP）
+- 審查 Python Agent 升級代碼
+- 開始準備 Final PDF Report 和 Demo Video 資料
 
 ---
 
@@ -219,3 +220,74 @@ git push origin main"
 
 ### 當前策略假設
 - **H1_BTC_Momentum**：BTC 15分鐘動量領先 Polymarket 賠率變化（待回測驗證）
+
+---
+
+## Claude Code 第四週期 Prompt（Python Agent 開源整合）
+
+> **注意**：開一個全新的 Claude Code 對話再貼此 Prompt，保持任務清晰。
+
+```text
+[CONTEXT & MEMORY - Read this carefully before starting]
+
+Project: PolyAlpha Protocol (ISOM3270 Final Project)
+Working Directory: C:\Users\user\Desktop\Dev.items.folder\ISOM3270_Startup
+GitHub: YongWilliam-ai/polyalpha-protocol (private)
+
+== What has been completed ==
+1. All 6 contracts deployed to ChainLab Testnet:
+   - MockUSDC:          0x77D7D52eE789B7C6bcD94eb87e2391BBb94A8D0a
+   - PALPHAToken:       0x36381Cd13C9030Eb7dfa7C274837115370FEcdbF
+   - PolyAlphaVault:    0x1c275054C7159aBBF446E652A744EFB8cbf6efd0
+   - ALPHAStakingPool:  0xF8E9E3af72E1F673B21eCB4d96C99BF9c1D47832
+   - PALPHABuybackBurn: 0xEc33dBc9dFAa1c380863547C5bCB7597eD611Ea4
+   - PolyAlphaDAO:      0x03C56c5bFc857694ECfdfCCa49456d67340E2BF0
+2. Frontend React dashboard: 4 pages (Vault, AI Signal Log, Backtest, PALPHA Hub)
+3. Backtest output files (synthetic demo) already in frontend/public/
+4. Python Agent currently uses basic momentum rules + theoretical Kelly sizing
+
+== Current Task Goal ==
+Upgrade the Python Agent (agent.py, btc_signal.py, backtest.py) by integrating
+3 open-source resources to improve data quality, risk management, and PnL accuracy.
+
+[TASK 1: Data Fetching Layer — Update agent.py & btc_signal.py]
+1a. Add a function `get_polymarket_v2_odds(market_id)` in btc_signal.py:
+    - Primary: use runesleo/polymarket-toolkit logic (V2 compatible)
+    - Fallback: use Gamma API (https://gamma-api.polymarket.com/markets/{id})
+    - If polymarket-toolkit is not installed, write as a stub with TODO comment
+
+1b. Add a function `get_news_sentiment()` in agent.py:
+    - Call: https://ai.6551.io/open/free_hot?category=crypto (no API key needed)
+    - Parse the response and return "bullish", "bearish", or "neutral"
+    - Use this as a pre-filter: skip trade if sentiment is "bearish" and signal is UP
+    - Comment: "# Inspired by 6551Team/daily-news MCP Server"
+
+[TASK 2: Risk Management Layer — Update btc_signal.py]
+Upgrade `monte_carlo_kelly()` to `empirical_kelly()`:
+    - Instead of using a fixed theoretical win_rate, use the ACTUAL win rate from
+      the last N trades stored in a rolling window (default N=50)
+    - If fewer than 10 trades in history, fall back to monte_carlo_kelly()
+    - Add a parameter `trade_history: list[dict]` (list of past {"won": bool} records)
+    - Comment: "# Inspired by @RohOnChain Empirical Kelly research"
+
+[TASK 3: Strategy Evaluation Layer — Verify backtest.py]
+Review backtest.py and confirm:
+    - The PnL calculation uses the cash-flow model (cost = bet_size, payout = shares * 1.0 if won)
+    - NOT the simple odds difference (close_price - open_price)
+    - Add a comment block at the top of run_backtest() explaining the runes_leo method
+    - If the cash-flow model is already implemented, just add/improve the comment
+
+[CONSTRAINTS]
+- Do NOT modify any Solidity contracts (.sol files) or deployment scripts
+- Do NOT change hardhat.config.js
+- Ensure all new Python code has comments explaining which open-source resource inspired it
+- If any SDK is not installed locally, write as a production-ready stub with TODO comment
+
+[WORKFLOW]
+1. Complete all 3 tasks.
+2. Run: python agent\backtest.py --source dummy (should still pass Kill Criteria test)
+3. Tell William: "Agent upgrade complete. Please run:
+git add -A
+git commit -m 'feat: Python Agent V2 upgrade - polymarket-toolkit + empirical kelly + news sentiment'
+git push origin main"
+```
