@@ -1,0 +1,57 @@
+name: PolyAlpha Daily Data Collection
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 08:00 HKT (UTC+8) = 00:00 UTC
+  workflow_dispatch:        # manual trigger from GitHub Actions UI
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install plotly pandas kaleido requests python-dotenv pytz
+          # kaleido on Linux requires Chrome/Chromium for PNG export
+          sudo apt-get install -y chromium-browser 2>/dev/null || \
+          sudo apt-get install -y chromium 2>/dev/null || \
+          echo "Chromium install failed -- HTML-only mode"
+
+      - name: Run daily data collection
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          OKX_API_KEY:        ${{ secrets.OKX_API_KEY }}
+        run: |
+          cd agent
+          python daily_runner.py
+        continue-on-error: false
+
+      - name: Run data quality check
+        run: |
+          cd agent
+          python data_quality.py --threshold 3
+        # Exit code 1 if consecutive mock days >= threshold (non-fatal for CI)
+        continue-on-error: true
+
+      - name: Upload reports as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daily-report-${{ github.run_id }}
+          path: |
+            reports/*.html
+            reports/*.png
+            reports/*.json
+          retention-days: 30

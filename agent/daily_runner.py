@@ -125,6 +125,15 @@ def run(dry_run: bool = False) -> dict:
 
     log.info(f"=== PolyAlpha Daily Runner [{date_str}] ===")
 
+    # GPU availability check (non-fatal -- scanner runs fine on CPU)
+    try:
+        sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+        from check_gpu import check_gpu, print_report
+        gpu_info = check_gpu()
+        print_report(gpu_info)
+    except ImportError:
+        log.info("GPU check skipped (check_gpu.py not on path)")
+
     # Collect funding rates
     log.info("Collecting funding rates...")
     try:
