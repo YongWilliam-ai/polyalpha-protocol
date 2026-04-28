@@ -14,8 +14,10 @@ References:
 
 import os
 import json
+import time
 import requests
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from typing import Optional
 
 # -- Constants -----------------------------------------------------------------
@@ -24,13 +26,22 @@ TAKER_FEE_PER_LEG_BPS = 5   # 0.05% per leg; 10bps round-trip
 ROUND_TRIP_FEE_BPS    = TAKER_FEE_PER_LEG_BPS * 2
 
 # @hunterweb303 funding-rates-mcp — public API endpoints (no auth required)
-HL_INFO_URL     = "https://api.hyperliquid.xyz/info"
-BINANCE_FR_URL  = "https://fapi.binance.com/fapi/v1/fundingRate"
-OKX_FR_URL      = "https://www.okx.com/api/v5/public/funding-rate"
+HL_INFO_URL    = "https://api.hyperliquid.xyz/info"
+BINANCE_FR_URL = "https://fapi.binance.com/fapi/v1/fundingRate"
+# OKX V5 per-instrument endpoint — instType=SWAP is NOT a valid param here
+# Reference: https://www.okx.com/docs-v5/en/#public-data-rest-api-get-funding-rate
+OKX_FR_URL     = "https://www.okx.com/api/v5/public/funding-rate"
+OKX_TARGET_INSTS = [
+    "BTC-USDT-SWAP", "ETH-USDT-SWAP", "SOL-USDT-SWAP",
+    "MATIC-USDT-SWAP", "DOGE-USDT-SWAP", "XRP-USDT-SWAP",
+]
 
 # PolyAlpha Strategy 1 — PolyMarket API endpoints
 GAMMA_API = "https://gamma-api.polymarket.com"
 CLOB_API  = "https://clob.polymarket.com"
+
+# Error log — written on API failures (never raised to stdout)
+ERROR_LOG = Path("agent/logs/error.log")
 
 
 # -- Mock fallback data --------------------------------------------------------
@@ -133,31 +144,76 @@ def _fetch_binance_funding_rates() -> dict[str, float]:
 
 def _fetch_okx_funding_rates() -> dict[str, float]:
     """
-    Fetch current funding rates from OKX SWAP instruments.
-    # @hunterweb303 funding-rates-mcp -- OKX public endpoint
-    Returns {symbol: funding_rate_per_8h}
-    """
-    resp = requests.get(
-        OKX_FR_URL,
-        params={"instType": "SWAP"},
-        timeout=5,
-    )
-    resp.raise_for_status()
-    items = resp.json().get("data", [])
+    Fetch funding rates from OKX V5 API, one request per target instrument.
+    # @hunterweb303 funding-rates-mcp -- OKX V5 per-instrument endpoint
+    # GET /api/v5/public/funding-rate?instId=BTC-USDT-SWAP
+    # instType=SWAP is NOT a valid query param on this endpoint (causes HTTP 400)
 
-    rates = {}
-    for item in items:
-        inst_id = item.get("instId", "")
-        # BTC-USDT-SWAP -> BTC
-        symbol = inst_id.split("-")[0]
-        try:
-            rates[symbol] = float(item.get("fundingRate", 0))
-        except (ValueError, TypeError):
-            pass
+    Retry policy: 3 attempts per instrument, exponential backoff (1s, 2s).
+    If ALL instruments fail after retries: raises RuntimeError and logs to error.log.
+    Partial failures (some instruments fail) are logged as warnings and skipped.
+
+    Returns {symbol: funding_rate_per_8h}  e.g. {"BTC": 0.0001, "ETH": -0.00005}
+    """
+    rates: dict[str, float] = {}
+    partial_failures: list[tuple[str, Exception]] = []
+
+    for inst_id in OKX_TARGET_INSTS:
+        symbol = inst_id.split("-")[0]  # "BTC-USDT-SWAP" -> "BTC"
+        last_exc: Optional[Exception] = None
+
+        for attempt in range(3):
+            try:
+                resp = requests.get(
+                    OKX_FR_URL,
+                    params={"instId": inst_id},
+                    timeout=5,
+                )
+                resp.raise_for_status()
+                payload = resp.json()
+                if payload.get("code") != "0":
+                    raise ValueError(
+                        f"OKX API error code={payload.get('code')} msg={payload.get('msg')}"
+                    )
+                data = payload.get("data", [])
+                if data:
+                    rates[symbol] = float(data[0].get("fundingRate", 0))
+                last_exc = None
+                break
+            except Exception as exc:
+                last_exc = exc
+                if attempt < 2:
+                    time.sleep(2 ** attempt)  # 1 s after attempt 0, 2 s after attempt 1
+
+        if last_exc is not None:
+            partial_failures.append((inst_id, last_exc))
+
+    if partial_failures:
+        _write_error_log(
+            f"OKX partial/full failure — {len(partial_failures)}/{len(OKX_TARGET_INSTS)} "
+            f"instruments failed: {[(i, str(e)) for i, e in partial_failures]}"
+        )
+
+    if not rates:
+        raise RuntimeError(
+            f"OKX API unavailable after 3 retries for all {len(OKX_TARGET_INSTS)} "
+            f"instruments. First error: {partial_failures[0][1]}"
+        )
+
     return rates
 
 
-def scan_funding_arbitrage(min_bps: int = 50) -> list[dict]:
+def _write_error_log(message: str) -> None:
+    """Append timestamped error to agent/logs/error.log."""
+    try:
+        ERROR_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(ERROR_LOG, "a") as f:
+            f.write(f"[{datetime.now(timezone.utc).isoformat()}] {message}\n")
+    except Exception:
+        pass  # never let logging crash the scanner
+
+
+def scan_funding_arbitrage(min_bps: int = 50) -> dict:
     """
     Scans 9 exchanges for funding rate arbitrage opportunities.
     Returns top 3 pairs with highest net spread (after taker fees).
@@ -166,8 +222,13 @@ def scan_funding_arbitrage(min_bps: int = 50) -> list[dict]:
     Data sources: Hyperliquid, Binance, OKX (live) + Bybit/dYdX/Drift/Vertex/Paradex/Aevo (stub)
 
     Returns:
-        list of dicts: [{symbol, long_venue, short_venue, gross_spread_bps,
-                         net_spread_bps, annualized_pct, estimated_8h_pnl_per_10k}]
+        {
+          "data": [{symbol, long_venue, short_venue, gross_spread_bps,
+                    net_spread_bps, annualized_pct, estimated_8h_pnl_per_10k}],
+          "source": "real" | "mock",
+          "timestamp": "ISO8601",
+          "error": null | "error description if mock was used"
+        }
     """
     ts = datetime.now(timezone.utc).isoformat()
     print(f"[{ts}] Fetching funding rates from HL / Binance / OKX...")
@@ -193,8 +254,10 @@ def scan_funding_arbitrage(min_bps: int = 50) -> list[dict]:
         print(f"  OKX fetch failed: {exc} -- skipping")
 
     if not venue_rates:
-        print("  All live APIs failed -- using mock data")
-        return MOCK_FUNDING_OPPORTUNITIES[:3]
+        err = "All live funding rate APIs failed (HL, Binance, OKX)"
+        _write_error_log(err)
+        print(f"  {err} -- using mock data")
+        return {"data": MOCK_FUNDING_OPPORTUNITIES[:3], "source": "mock", "timestamp": ts, "error": err}
 
     # Build cross-venue spread for each symbol present in >= 2 venues
     all_symbols = set()
@@ -246,13 +309,14 @@ def scan_funding_arbitrage(min_bps: int = 50) -> list[dict]:
         )
 
     if not opportunities:
-        print("  No live opportunities above threshold -- using mock data")
-        return MOCK_FUNDING_OPPORTUNITIES[:3]
+        err = f"No live pairs above {min_bps}bps net spread -- using mock data"
+        print(f"  {err}")
+        return {"data": MOCK_FUNDING_OPPORTUNITIES[:3], "source": "mock", "timestamp": ts, "error": err}
 
     opportunities.sort(key=lambda x: x["net_spread_bps"], reverse=True)
     top3 = opportunities[:3]
     print(f"  Top {len(top3)} funding arb opportunities found (live data)")
-    return top3
+    return {"data": top3, "source": "real", "timestamp": ts, "error": None}
 
 
 # -- PolyMarket Fast-Resolution Scanner ----------------------------------------
@@ -277,7 +341,7 @@ def scan_polymarket_fast_resolution(
     min_price: float = 0.95,
     max_hours_to_end: int = 2,
     min_volume_usd: float = 10000,
-) -> list[dict]:
+) -> dict:
     """
     Scans PolyMarket CLOB for markets near settlement with high-certainty pricing.
 
@@ -294,8 +358,13 @@ def scan_polymarket_fast_resolution(
       CLOB API:  https://clob.polymarket.com/markets (order book)
 
     Returns:
-        list of dicts: [{market_id, question, end_time, yes_price, no_price,
-                         volume_24h, estimated_net_return_pct, confidence_label}]
+        {
+          "data": [{market_id, question, end_time, yes_price, no_price,
+                    volume_24h, estimated_net_return_pct, confidence_label}],
+          "source": "real" | "mock",
+          "timestamp": "ISO8601",
+          "error": null | "error description if mock was used"
+        }
     """
     ts  = datetime.now(timezone.utc).isoformat()
     now = datetime.now(timezone.utc)
@@ -312,8 +381,10 @@ def scan_polymarket_fast_resolution(
         resp.raise_for_status()
         markets = resp.json()
     except Exception as exc:
-        print(f"  Gamma API unavailable: {exc} -- using mock data")
-        return MOCK_POLYMARKET_OPPORTUNITIES
+        err = f"Gamma API unavailable: {exc}"
+        _write_error_log(err)
+        print(f"  {err} -- using mock data")
+        return {"data": MOCK_POLYMARKET_OPPORTUNITIES, "source": "mock", "timestamp": ts, "error": err}
 
     qualifying = []
 
@@ -381,7 +452,7 @@ def scan_polymarket_fast_resolution(
         print("  No qualifying markets found (may be off-hours or API filtered)")
 
     qualifying.sort(key=lambda x: x["estimated_net_return_pct"], reverse=True)
-    return qualifying
+    return {"data": qualifying, "source": "real", "timestamp": ts, "error": None}
 
 
 # -- Oracle Risk Scorer -------------------------------------------------------
@@ -441,13 +512,18 @@ if __name__ == "__main__":
     print("=" * 60)
 
     print("\n[1/2] Scanning Funding Rate Arbitrage...")
-    funding_opps = scan_funding_arbitrage(min_bps=30)
+    funding_result = scan_funding_arbitrage(min_bps=30)
+    funding_opps   = funding_result["data"]
 
     print("\n[2/2] Scanning PolyMarket Fast-Resolution...")
-    poly_opps = scan_polymarket_fast_resolution(min_price=0.95, max_hours_to_end=4)
+    poly_result = scan_polymarket_fast_resolution(min_price=0.95, max_hours_to_end=4)
+    poly_opps   = poly_result["data"]
 
     print("\n" + "=" * 60)
-    print(f"SCAN COMPLETE: {len(funding_opps)} funding arb + {len(poly_opps)} PolyMarket opportunities")
+    print(
+        f"SCAN COMPLETE: {len(funding_opps)} funding arb [{funding_result['source'].upper()}] "
+        f"+ {len(poly_opps)} PolyMarket [{poly_result['source'].upper()}] opportunities"
+    )
     print("=" * 60)
 
     if funding_opps:

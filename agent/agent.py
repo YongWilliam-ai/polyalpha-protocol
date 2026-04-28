@@ -608,17 +608,19 @@ def run_agent(dry_run: bool = False):
         # Paper Trading phase: scan only, no execution
         # Reference: @hunterweb303 funding-rates-mcp + PolyAlpha PolyMarket strategy
         try:
-            funding_opportunities = scan_funding_arbitrage(min_bps=30)
-            for opp in funding_opportunities:
+            funding_result = scan_funding_arbitrage(min_bps=30)
+            log.info(f"Funding arb source: {funding_result['source'].upper()}")
+            for opp in funding_result["data"]:
                 if opp["net_spread_bps"] > 50:
-                    log_opportunity("FUNDING_ARB", opp)
+                    log_opportunity("FUNDING_ARB", {**opp, "_source": funding_result["source"]})
 
-            poly_opportunities = scan_polymarket_fast_resolution(
+            poly_result = scan_polymarket_fast_resolution(
                 min_price=0.95, max_hours_to_end=2
             )
-            for opp in poly_opportunities:
+            log.info(f"PolyMarket scan source: {poly_result['source'].upper()}")
+            for opp in poly_result["data"]:
                 if opp["estimated_net_return_pct"] > 0.02:
-                    log_opportunity("POLYMARKET_FAST_RESOLUTION", opp)
+                    log_opportunity("POLYMARKET_FAST_RESOLUTION", {**opp, "_source": poly_result["source"]})
         except Exception as exc:
             log.warning(f"Arb scanner error (non-fatal): {exc}")
         # === END ARBITRAGE SCANNING BLOCK ===

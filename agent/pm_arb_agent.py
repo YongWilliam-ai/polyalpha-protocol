@@ -169,37 +169,34 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
         # ── Strategy 1: PolyMarket near-settlement ────────────────────────────
         log.info("[1/2] Scanning PolyMarket fast-resolution opportunities...")
         try:
-            poly_opps = scan_polymarket_fast_resolution(
+            poly_result = scan_polymarket_fast_resolution(
                 min_price=0.95,
                 max_hours_to_end=2,
                 min_volume_usd=10_000,
             )
+            poly_opps = poly_result["data"]
+            log.info(f"  Source: {poly_result['source'].upper()}" + (f" | {poly_result['error']}" if poly_result.get("error") else ""))
             _log_scan("POLYMARKET_FAST_RESOLUTION", poly_opps)
 
             alerts_sent = 0
             for opp in poly_opps:
                 if opp["estimated_net_return_pct"] < MIN_NET_RETURN_TO_ALERT:
                     continue
+                # Skip mock data alerts -- source tag gates real vs fake
+                if poly_result["source"] == "mock":
+                    log.info("  Skipping Telegram alert -- source is MOCK")
+                    continue
 
-                # Oracle risk gate -- requires raw market dict; skip if unavailable
-                # arb_scanner returns processed dicts, so use a stub score here
-                # Full oracle_risk_score() is available in scan loop via raw market data
                 risk = 0.1   # conservative default for pre-processed records
-
                 if risk >= MAX_ORACLE_RISK_TO_ALERT:
-                    log.info(
-                        f"  Skipping [{opp['question'][:40]}...] -- oracle risk {risk:.2f}"
-                    )
+                    log.info(f"  Skipping [{opp['question'][:40]}...] -- oracle risk {risk:.2f}")
                     continue
 
                 alert = _format_poly_alert(opp, risk)
                 send_telegram(alert, dry_run=dry_run)
                 alerts_sent += 1
 
-            log.info(
-                f"  {len(poly_opps)} PM opportunities scanned, "
-                f"{alerts_sent} alerts sent"
-            )
+            log.info(f"  {len(poly_opps)} PM opportunities scanned, {alerts_sent} alerts sent")
 
         except Exception as exc:
             log.error(f"PolyMarket scan error: {exc}")
@@ -207,21 +204,23 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
         # ── Strategy 2: Funding rate arb (informational) ─────────────────────
         log.info("[2/2] Scanning funding rate arbitrage...")
         try:
-            funding_opps = scan_funding_arbitrage(min_bps=30)
+            funding_result = scan_funding_arbitrage(min_bps=30)
+            funding_opps = funding_result["data"]
+            log.info(f"  Source: {funding_result['source'].upper()}" + (f" | {funding_result['error']}" if funding_result.get("error") else ""))
             _log_scan("FUNDING_ARB", funding_opps)
 
             alerts_sent = 0
             for opp in funding_opps:
                 if opp["net_spread_bps"] < MIN_NET_BPS_TO_ALERT:
                     continue
+                if funding_result["source"] == "mock":
+                    log.info("  Skipping Telegram alert -- source is MOCK")
+                    continue
                 alert = _format_funding_alert(opp)
                 send_telegram(alert, dry_run=dry_run)
                 alerts_sent += 1
 
-            log.info(
-                f"  {len(funding_opps)} funding opportunities scanned, "
-                f"{alerts_sent} alerts sent"
-            )
+            log.info(f"  {len(funding_opps)} funding opportunities scanned, {alerts_sent} alerts sent")
 
         except Exception as exc:
             log.error(f"Funding arb scan error: {exc}")
@@ -259,10 +258,12 @@ if __name__ == "__main__":
         # Single scan mode for testing
         log.info("Running single scan (--once mode)...")
 
-        poly = scan_polymarket_fast_resolution(min_price=0.95, max_hours_to_end=4)
-        fund = scan_funding_arbitrage(min_bps=30)
+        poly_result = scan_polymarket_fast_resolution(min_price=0.95, max_hours_to_end=4)
+        fund_result = scan_funding_arbitrage(min_bps=30)
+        poly = poly_result["data"]
+        fund = fund_result["data"]
 
-        print(f"\nPolyMarket opportunities: {len(poly)}")
+        print(f"\nPolyMarket opportunities: {len(poly)} [{poly_result['source'].upper()}]")
         for o in poly:
             risk = 0.1
             print(
@@ -270,7 +271,7 @@ if __name__ == "__main__":
                 f"net={o['estimated_net_return_pct']*100:.1f}% risk={risk:.2f}"
             )
 
-        print(f"\nFunding arb opportunities: {len(fund)}")
+        print(f"\nFunding arb opportunities: {len(fund)} [{fund_result['source'].upper()}]")
         for o in fund:
             print(
                 f"  {o['symbol']:6s} {o['long_venue']:12s} vs {o['short_venue']:12s} "
