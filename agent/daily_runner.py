@@ -35,6 +35,14 @@ import requests
 
 from arb_scanner import scan_funding_arbitrage, scan_polymarket_fast_resolution
 
+# Visualization and reporting (imported here so daily_runner is the single entry point)
+try:
+    from viz_generator import generate_all as _generate_charts
+    from report_generator import build_html_report as _build_html, push_to_telegram as _push_telegram
+    _VIZ_AVAILABLE = True
+except ImportError:
+    _VIZ_AVAILABLE = False
+
 # -- Config -------------------------------------------------------------------
 REPORTS_DIR = Path(__file__).parent.parent / "reports"
 REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -175,7 +183,21 @@ def run(dry_run: bool = False) -> dict:
     )
     print(status_line)
 
-    # Optional Telegram daily summary
+    # Auto-generate charts and HTML report
+    if _VIZ_AVAILABLE:
+        log.info("Generating charts...")
+        try:
+            chart_paths = _generate_charts(date_str)
+            report_path = _build_html(date_str, chart_paths, summary)
+            log.info(f"Report: {report_path}")
+            if not dry_run:
+                _push_telegram(chart_paths, summary, date_str)
+        except Exception as exc:
+            log.warning(f"Visualization failed (non-fatal): {exc}")
+    else:
+        log.warning("plotly/viz_generator not available -- skipping chart generation")
+
+    # Optional Telegram daily summary (text-only if viz unavailable)
     if not dry_run and (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID):
         msg = (
             f"*PolyAlpha Daily* -- {date_str}\n"
