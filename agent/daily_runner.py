@@ -35,6 +35,12 @@ import requests
 
 from arb_scanner import scan_funding_arbitrage, scan_polymarket_fast_resolution
 
+try:
+    from execution_engine import CrossExchangeExecutor
+    _EXECUTOR_AVAILABLE = True
+except ImportError:
+    _EXECUTOR_AVAILABLE = False
+
 # Visualization and reporting (imported here so daily_runner is the single entry point)
 try:
     from viz_generator import generate_all as _generate_charts
@@ -83,9 +89,9 @@ def send_telegram(message: str, dry_run: bool = False) -> bool:
 
 # -- Data collection ----------------------------------------------------------
 
-def get_funding_rates() -> dict:
+def get_funding_rates(executor=None) -> dict:
     """Thin wrapper — standard Prompt 2 interface."""
-    return scan_funding_arbitrage(min_bps=10)   # low threshold to capture more live data
+    return scan_funding_arbitrage(min_bps=10, executor=executor)
 
 
 def scan_polymarket(max_hours: int = 4) -> dict:
@@ -154,6 +160,14 @@ def run(dry_run: bool = False) -> dict:
 
     log.info(f"=== PolyAlpha Daily Runner [{date_str}] ===")
 
+    # Initialize paper execution engine
+    executor = None
+    if _EXECUTOR_AVAILABLE:
+        executor = CrossExchangeExecutor(paper_mode=True)
+        log.info("CrossExchangeExecutor initialized (paper_mode=True)")
+    else:
+        log.warning("execution_engine not available -- skipping paper trade execution")
+
     # Startup health check — report API status before collecting data
     _startup_health_check()
 
@@ -169,7 +183,7 @@ def run(dry_run: bool = False) -> dict:
     # Collect funding rates
     log.info("Collecting funding rates...")
     try:
-        funding = get_funding_rates()
+        funding = get_funding_rates(executor=executor)
     except Exception as exc:
         funding = {"data": [], "source": "mock", "timestamp": ts, "error": str(exc)}
         log.error(f"Funding collection failed: {exc}")
@@ -188,13 +202,14 @@ def run(dry_run: bool = False) -> dict:
 
     # Persist history record
     history_record = {
-        "timestamp":        ts,
-        "date":             date_str,
-        "funding":          funding,
-        "polymarket":       polymarket,
-        "opportunities":    opps_count,
-        "funding_source":   funding_src,
-        "polymarket_source": poly_src,
+        "timestamp":             ts,
+        "date":                  date_str,
+        "funding":               funding,
+        "polymarket":            polymarket,
+        "opportunities":         opps_count,
+        "funding_source":        funding_src,
+        "polymarket_source":     poly_src,
+        "paper_trades_executed": len(funding.get("paper_trades", [])),
     }
     _append_history(history_record)
     log.info(f"Appended to {HISTORY_FILE}")
@@ -203,12 +218,16 @@ def run(dry_run: bool = False) -> dict:
     mock_count = sum([funding_src == "mock", poly_src == "mock"])
     mock_pct   = mock_count / 2.0
 
+    paper_trades      = funding.get("paper_trades", [])
+    paper_trades_count = len(paper_trades)
+
     summary = {
         "date":                  date_str,
         "funding_source":        funding_src,
         "polymarket_source":     poly_src,
         "opportunities_found":   opps_count,
         "mock_percentage":       mock_pct,
+        "paper_trades_executed": paper_trades_count,
         "funding_error":         funding.get("error"),
         "polymarket_error":      polymarket.get("error"),
     }
@@ -220,7 +239,8 @@ def run(dry_run: bool = False) -> dict:
 
     status_line = (
         f"[{date_str}] Funding: {_icon(funding_src)} | "
-        f"Polymarket: {_icon(poly_src)} | Opps: {opps_count}"
+        f"Polymarket: {_icon(poly_src)} | Opps: {opps_count} | "
+        f"PaperTrades: {paper_trades_count}"
     )
     print(status_line)
 

@@ -20,6 +20,12 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
 
+try:
+    from execution_engine import CrossExchangeExecutor
+    _EXECUTOR_AVAILABLE = True
+except ImportError:
+    _EXECUTOR_AVAILABLE = False
+
 # -- Constants -----------------------------------------------------------------
 
 TAKER_FEE_PER_LEG_BPS = 5   # 0.05% per leg; 10bps round-trip
@@ -213,7 +219,7 @@ def _write_error_log(message: str) -> None:
         pass  # never let logging crash the scanner
 
 
-def scan_funding_arbitrage(min_bps: int = 50) -> dict:
+def scan_funding_arbitrage(min_bps: int = 50, executor=None) -> dict:
     """
     Scans 9 exchanges for funding rate arbitrage opportunities.
     Returns top 3 pairs with highest net spread (after taker fees).
@@ -316,7 +322,30 @@ def scan_funding_arbitrage(min_bps: int = 50) -> dict:
     opportunities.sort(key=lambda x: x["net_spread_bps"], reverse=True)
     top3 = opportunities[:3]
     print(f"  Top {len(top3)} funding arb opportunities found (live data)")
-    return {"data": top3, "source": "real", "timestamp": ts, "error": None}
+
+    # Execute paper trades for opportunities exceeding 1% net spread (100 bps)
+    paper_trades = []
+    if executor is not None:
+        for opp in top3:
+            if opp["net_spread_bps"] > 100:
+                try:
+                    receipt = executor.execute_funding_arb(
+                        symbol=opp["symbol"],
+                        long_exchange=opp["long_venue"],
+                        short_exchange=opp["short_venue"],
+                        amount_usdc=1_000.0,
+                    )
+                    paper_trades.append(receipt)
+                except Exception as exc:
+                    print(f"  Execution failed for {opp['symbol']}: {exc}")
+
+    return {
+        "data":          top3,
+        "source":        "real",
+        "timestamp":     ts,
+        "error":         None,
+        "paper_trades":  paper_trades,
+    }
 
 
 # -- PolyMarket Fast-Resolution Scanner ----------------------------------------
