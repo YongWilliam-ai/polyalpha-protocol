@@ -52,6 +52,8 @@ from dotenv import load_dotenv
 from web3 import Web3
 from eth_account import Account
 
+from pathlib import Path
+
 from btc_signal import (
     generate_signal,
     BtcSignal,
@@ -62,6 +64,7 @@ from btc_signal import (
     EDGE_MAX_BPS,
     MAX_POSITION_BPS,
 )
+from arb_scanner import scan_funding_arbitrage, scan_polymarket_fast_resolution
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
@@ -416,6 +419,25 @@ def log_position_on_chain(
     return receipt.transactionHash.hex()
 
 
+# -- Arbitrage opportunity logger ---------------------------------------------
+
+LOG_FILE = Path("agent/logs/arbitrage_opportunities.txt")
+LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+
+def log_opportunity(strategy: str, data: dict) -> None:
+    """Append arbitrage opportunity to log file with timestamp."""
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "strategy":  strategy,
+        "data":      data,
+    }
+    with open(LOG_FILE, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+    label = data.get("symbol", data.get("question", "unknown"))
+    log.info(f"[LOG] Opportunity logged: {strategy} -- {label}")
+
+
 # -- Main agent loop ----------------------------------------------------------
 
 def run_agent(dry_run: bool = False):
@@ -557,6 +579,25 @@ def run_agent(dry_run: bool = False):
                     signals_logged += 1
                 except Exception as exc:
                     log.error(f"  logPosition() failed: {exc}")
+
+        # === ARBITRAGE SCANNING BLOCK (added for ISOM3270 startup pivot) ===
+        # Paper Trading phase: scan only, no execution
+        # Reference: @hunterweb303 funding-rates-mcp + PolyAlpha PolyMarket strategy
+        try:
+            funding_opportunities = scan_funding_arbitrage(min_bps=30)
+            for opp in funding_opportunities:
+                if opp["net_spread_bps"] > 50:
+                    log_opportunity("FUNDING_ARB", opp)
+
+            poly_opportunities = scan_polymarket_fast_resolution(
+                min_price=0.95, max_hours_to_end=2
+            )
+            for opp in poly_opportunities:
+                if opp["estimated_net_return_pct"] > 0.02:
+                    log_opportunity("POLYMARKET_FAST_RESOLUTION", opp)
+        except Exception as exc:
+            log.warning(f"Arb scanner error (non-fatal): {exc}")
+        # === END ARBITRAGE SCANNING BLOCK ===
 
         log.info(
             f"Signals this session: {signals_logged} | "

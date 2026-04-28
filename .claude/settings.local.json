@@ -6,7 +6,8 @@
       "Bash(pip install *)",
       "Bash(npm run *)",
       "Bash(python agent/backtest.py --source dummy --hypothesis H1_BTC_Momentum)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Skill(update-config)"
     ]
   }
 }

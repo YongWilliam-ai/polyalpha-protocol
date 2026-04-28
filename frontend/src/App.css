@@ -150,3 +150,59 @@ code { background: #1e1e35; padding: 2px 6px; border-radius: 4px; font-size: 13p
 .hub-burn-info { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .hub-burn-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #888; padding: 0.4rem 0; border-bottom: 1px solid #1a1a2e; }
 .hub-link { font-family: monospace; font-size: 12px; color: #7c5cfc; }
+
+/* ── Vault two-column layout ── */
+.vault-layout { display: grid; grid-template-columns: 1fr 340px; gap: 1.5rem; align-items: start; }
+@media (max-width: 900px) { .vault-layout { grid-template-columns: 1fr; } }
+.vault-main { min-width: 0; }
+.vault-sidebar { position: sticky; top: 1.5rem; }
+
+.vault-status-badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; padding: 3px 10px; border-radius: 4px; }
+.vault-status-badge.live   { background: #0d2a1a; color: #60e090; border: 1px solid #2a7a4a; }
+.vault-status-badge.halted { background: #2a0d0d; color: #e08080; border: 1px solid #7a2a2a; }
+
+.wallet-connected { display: flex; align-items: center; gap: 0.6rem; }
+.wallet-dot { width: 8px; height: 8px; border-radius: 50%; background: #60e090; box-shadow: 0 0 6px #60e090; flex-shrink: 0; }
+.chain-badge { font-size: 11px; background: #1a1a35; border: 1px solid #3a3a5a; color: #888; padding: 2px 8px; border-radius: 4px; }
+.connect-btn { display: flex; align-items: center; }
+
+/* ── Toast notifications ── */
+.toast-stack { position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
+.toast { padding: 0.65rem 1rem; border-radius: 8px; font-size: 13px; font-weight: 500; min-width: 220px; max-width: 340px; animation: toast-in 0.2s ease; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+.toast-info    { background: #1a1a35; border: 1px solid #3a3a6e; color: #b0b0e0; }
+.toast-success { background: #0d2a1a; border: 1px solid #2a7a4a; color: #60e090; }
+.toast-error   { background: #2a0d0d; border: 1px solid #7a2a2a; color: #e08080; }
+@keyframes toast-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+
+/* ── Social feed widget ── */
+.social-feed { background: #12122a; border: 1px solid #2a2a4a; border-radius: 10px; overflow: hidden; }
+.social-feed-header { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid #2a2a4a; }
+.social-feed-title { display: flex; align-items: center; gap: 0.5rem; font-size: 13px; font-weight: 700; color: #d0d0ff; }
+.social-feed-sub { font-size: 11px; color: #555; }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: #60e090; box-shadow: 0 0 5px #60e090; animation: pulse 2s infinite; flex-shrink: 0; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.social-feed-list { max-height: 580px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2a2a4a transparent; }
+.social-feed-list::-webkit-scrollbar { width: 4px; }
+.social-feed-list::-webkit-scrollbar-track { background: transparent; }
+.social-feed-list::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
+
+.tweet { padding: 0.85rem 1rem; border-bottom: 1px solid #1a1a2e; transition: background 0.15s; }
+.tweet:last-child { border-bottom: none; }
+.tweet:hover { background: #14142a; }
+.tweet-new { background: #16163a; border-left: 2px solid #7c5cfc; }
+
+.tweet-row { display: flex; gap: 0.65rem; }
+.tweet-avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.tweet-body { flex: 1; min-width: 0; }
+.tweet-meta-top { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.3rem; }
+.tweet-name { font-size: 13px; font-weight: 700; color: #e0e0f0; }
+.tweet-handle { font-size: 12px; color: #555; }
+.tweet-time { font-size: 12px; color: #444; }
+.tweet-tag { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.04em; margin-left: auto; }
+.tweet-content { font-size: 13px; line-height: 1.55; color: #c0c0d8; margin-bottom: 0.45rem; }
+.tweet-actions { display: flex; gap: 1rem; }
+.tweet-stat { display: flex; align-items: center; gap: 0.3rem; font-size: 12px; color: #555; }
+.tweet-stat svg { flex-shrink: 0; }
+
+.social-feed-footer { padding: 0.5rem 1rem; font-size: 11px; color: #444; text-align: center; border-top: 1px solid #1a1a2e; }

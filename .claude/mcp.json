@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "funding-arb-scanner": {
+      "command": "npx",
+      "args": ["-y", "@cexagent/funding-arb-scanner"],
+      "description": "Scans 9 exchanges for funding rate arbitrage. Net spread after taker fees. By @hunterweb303."
+    },
+    "hyperliquid-mcp": {
+      "command": "npx",
+      "args": ["-y", "@cexagent/hyperliquid-mcp"],
+      "description": "Hyperliquid market data, whale positions, liquidation risk. 22 tools, 4 modules."
+    }
+  }
+}
