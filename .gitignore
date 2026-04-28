@@ -35,6 +35,13 @@ data/*.csv
 data/*.json
 !data/.gitkeep
 
+# Auto-generated reports (charts, JSONL, summaries)
+reports/*.jsonl
+reports/*.json
+reports/*.html
+reports/*.png
+!reports/.gitkeep
+
 # OS
 .DS_Store
 Thumbs.db
