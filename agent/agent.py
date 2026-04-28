@@ -421,8 +421,18 @@ def log_position_on_chain(
 
 # -- Arbitrage opportunity logger ---------------------------------------------
 
-LOG_FILE = Path("agent/logs/arbitrage_opportunities.txt")
+LOG_FILE          = Path("agent/logs/arbitrage_opportunities.txt")
+TRADE_HISTORY_FILE = Path("agent/logs/trade_history.jsonl")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _append_trade(record: dict) -> None:
+    """Persist a trade record to trade_history.jsonl for empirical Kelly continuity."""
+    try:
+        with open(TRADE_HISTORY_FILE, "a") as f:
+            f.write(json.dumps(record) + "\n")
+    except Exception as exc:
+        log.warning(f"Could not write trade history: {exc}")
 
 
 def log_opportunity(strategy: str, data: dict) -> None:
@@ -460,8 +470,19 @@ def run_agent(dry_run: bool = False):
 
     # Daily loss tracker: {"YYYY-MM-DD": cumulative_loss_bps}
     daily_loss_tracker: dict = {}
-    # Rolling trade history for empirical Kelly sizing ({"won": bool} records)
+
+    # Rolling trade history for empirical Kelly sizing -- persisted to disk
     trade_history: list = []
+    if TRADE_HISTORY_FILE.exists():
+        try:
+            trade_history = [
+                json.loads(line)
+                for line in TRADE_HISTORY_FILE.read_text().splitlines()
+                if line.strip()
+            ]
+            log.info(f"Loaded {len(trade_history)} records from {TRADE_HISTORY_FILE}")
+        except Exception as exc:
+            log.warning(f"Could not load trade history: {exc} -- starting fresh")
 
     signals_logged = 0
     scan_count     = 0
@@ -568,6 +589,7 @@ def run_agent(dry_run: bool = False):
                 log.info(f"  [DRY RUN] Signal: {json.dumps(signal_record)}")
                 signals_logged += 1
                 # Paper trade -- assume neutral outcome for history tracking
+                _append_trade({"ts": signal.timestamp, "won": None, "side": signal.side})
                 trade_history.append({"won": None})
             else:
                 try:
@@ -577,6 +599,8 @@ def run_agent(dry_run: bool = False):
                         f"  On-chain: https://amoy.polygonscan.com/tx/{tx_hash}"
                     )
                     signals_logged += 1
+                    _append_trade({"ts": signal.timestamp, "won": None, "side": signal.side})
+                    trade_history.append({"won": None})
                 except Exception as exc:
                     log.error(f"  logPosition() failed: {exc}")
 

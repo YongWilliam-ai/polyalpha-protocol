@@ -384,6 +384,55 @@ def scan_polymarket_fast_resolution(
     return qualifying
 
 
+# -- Oracle Risk Scorer -------------------------------------------------------
+
+# Resolution source strings that indicate high dispute risk
+_HIGH_RISK_RESOLUTION_SOURCES = {"uma", "optimistic oracle", "uma optimistic"}
+_CONTINGENT_KEYWORDS = (
+    "contingent", "unless", "disputed", "var", "review", "appeal", "challenge",
+    "recount", "certification", "ratified",
+)
+
+
+def oracle_risk_score(market: dict) -> float:
+    """
+    Heuristic UMA dispute probability score for a PolyMarket market.
+    Returns 0.0 (safe) to 1.0 (high dispute risk).
+
+    # PolyAlpha Strategy 1: oracle risk filter
+    # UMA Optimistic Oracle has a 48h dispute window. A disputed resolution
+    # locks capital with potential full loss. This scorer helps skip risky markets.
+
+    Inputs examined:
+      - resolutionSource: UMA/Optimistic Oracle -> elevated base risk
+      - question text: contingent language -> elevated risk
+      - volume: thin liquidity often signals disagreement among participants
+    """
+    score = 0.0
+
+    # Resolution source check
+    resolution_src = str(market.get("resolutionSource", "")).lower()
+    if any(tag in resolution_src for tag in _HIGH_RISK_RESOLUTION_SOURCES):
+        score += 0.4
+
+    # Contingent language in the question
+    question = str(market.get("question", "")).lower()
+    if any(kw in question for kw in _CONTINGENT_KEYWORDS):
+        score += 0.3
+
+    # Thin volume is a proxy for "market participants disagree / uncertain"
+    try:
+        vol = float(market.get("volume24hr", market.get("volume", 0)) or 0)
+    except (ValueError, TypeError):
+        vol = 0
+    if vol < 5_000:
+        score += 0.2
+    elif vol < 20_000:
+        score += 0.1
+
+    return min(round(score, 2), 1.0)
+
+
 # -- Entry point ---------------------------------------------------------------
 
 if __name__ == "__main__":

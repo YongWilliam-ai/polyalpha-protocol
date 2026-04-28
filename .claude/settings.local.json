@@ -7,7 +7,11 @@
       "Bash(npm run *)",
       "Bash(python agent/backtest.py --source dummy --hypothesis H1_BTC_Momentum)",
       "Bash(python *)",
-      "Skill(update-config)"
+      "Skill(update-config)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(.venv/Scripts/python agent/pm_arb_agent.py --once)",
+      "Bash(C:/Users/user/Desktop/Dev.items.folder/ISOM3270_Startup/.venv/Scripts/python.exe *)"
     ]
   }
 }
