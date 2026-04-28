@@ -1,0 +1,652 @@
+== What has been completed ==
+1. Core infrastructure (Contracts, Frontend, Backtest Engine) is 100% complete.
+2. The project is now pivoting from a "university demo" to a "profitable startup".
+3. We are abandoning the simple BTC momentum strategy and moving towards Delta-Neutral Funding Arbitrage and Polymarket Fast-Resolution Arbitrage.
+
+== Current Task Goal ==
+Integrate the open-source `funding-rates-mcp` and `bitget-task-skills` into our AI Agent ecosystem to enable real-time arbitrage scanning.
+
+## [OPUS EVALUATION RESULT — 1. Executive Summary (Professor Pitch)
+
+    PolyAlpha Protocol combines three alpha sources — near-settlement prediction market arbitrage, cross-exchange funding rate
+    harvesting, and a proven 78.7% win-rate momentum signal (H36) — routed through an on-chain ERC-4626 vault with DAO governance,
+    creating a vertically integrated quant-to-yield product that no single competitor replicates. The addressable gap is real:
+    competitors like Coinglass charge $29/month for funding data but omit DEX perps and net-fee math, while Polymarket near-settlement
+     arb remains systematically underexploited because it requires CLOB + Gamma API fusion that no public tool provides. With
+    $500–$1,000 in paper capital and your existing H36 live edge, this is demonstrably not a toy — it is a prototype of the
+    infrastructure layer that institutional prediction-market traders will eventually need.
+
+    ---
+    2. Strategy 1 Analysis: PolyMarket Fast-Resolution Arb
+
+    Feasibility Score: 6/10 (paper), 4/10 (live at your capital level)
+
+    The core logic is sound. Near-settlement arb is a real edge — it exploits the fact that prediction market LPs and casual
+    participants are slow to update prices when real-world outcomes are already determined. This is sometimes called "resolution lag
+    arbitrage."
+
+    Hidden risks you haven't listed:
+1. The 0.95 market is already efficient. If a market sits at $0.95 for hours, it's because sophisticated players have already
+    priced in the residual risk. The remaining 5% often represents genuine uncertainty — a referee's VAR review, a contested election
+    count, an oracle that disagrees with the crowd. You are not buying a guaranteed dollar; you are buying a biased lottery ticket
+    priced at $0.95.
+    2. Oracle gaming and delay is your #1 structural risk. Polymarket uses UMA's Optimistic Oracle. Resolution can be disputed
+    (48-hour dispute window). If you buy at $0.95 and someone disputes the resolution, your capital is locked for 48+ hours earning
+    nothing, and if the dispute succeeds (rare but nonzero), you lose the position entirely. This is not a footnote — it has happened
+    publicly on multiple Polymarket markets.
+    3. CLOB liquidity at >$0.95 is genuinely thin. At that price level, you are often the only willing buyer. Your market order will
+    push the price to $0.97–$0.98 immediately, compressing your spread to 2–3%. On $500 notional that's $10–15 gross, minus Polygon
+    gas (~$0.50–$2 depending on congestion), minus CLOB maker/taker fees (0.05% + 0.1% = $0.75 on $500) = net $8–12 if everything
+    works perfectly.
+    4. Adverse selection from professional bots. The markets where near-settlement arb is safest (clear outcome, no dispute risk) are
+    also the ones fastest-moving bots have already collapsed to $0.98–$0.99. By the time your scanner finds a $0.95 opportunity and
+    your Python script fires a transaction, you may face $0.97 fill.
+    5. Volume concentration risk. The highest-liquidity near-settlement markets are almost exclusively political (US elections, Fed
+    decisions) and sports (Champions League finals). These are event-clustered — you can't run this as a continuous strategy; you run
+    it 3–4 times a month at best.
+
+    Capital efficiency at $500–$1,000:
+    - Expected monthly return: $20–80 (4–8%) if you execute 4–6 good trades
+ - But standard deviation is high — one disputed resolution wipes 2–3 months of gains
+    - Minimum viable capital to make this meaningful: ~$5,000 (so $200+ gross per trade before fees create noise)
+
+    Verdict for professor demo: Excellent demonstration value because it's concrete, visual (you can show the Gamma API scanner
+    finding real markets in real time), and intellectually defensible. Poor as a primary profit engine at your capital level.
+
+    ---
+    3. Strategy 2 Analysis: Funding Rate Arb
+
+    Feasibility Score: 3/10 at $500–$1,000. 7/10 at $50,000+.
+
+    Your competitor's own example exposes the fundamental problem: $10,000 notional, 24 hours, gross $1.26, fees $19, net -$17.74.
+    This isn't a competitive problem — it's a structural one. Funding rate arb is a size game, not an edge game.
+
+    The math at your capital level:
+
+    On $1,000 notional, same BTC HL/Paradex example:
+    - Gross funding collected per 8h: $0.126
+    - Taker fee to open both legs (assuming 0.05% each side, two exchanges): $1.00
+    - Taker fee to close: $1.00
+    - Total fees: $2.00 for $0.38 gross income over 24h
+- Break-even holding: 128 days. At which point price divergence risk is catastrophic.
+
+    Hidden risks:
+
+    1. The "delta-neutral" assumption breaks at exchange level. If BTC drops 10% while you're long on HL and short on Paradex, your HL
+     long may face a margin call before your Paradex short profits can be realized. The two legs are on different exchanges with
+    different margin engines. True delta neutrality requires instantaneous rebalancing, which requires automation, which requires API
+    access to both exchanges, which has latency risk.
+    2. Funding rates are mean-reverting and don't persist. A 4.61%/yr spread today becomes 0.2%/yr tomorrow if enough arb capital
+    flows in. You have no moat — anyone with more capital than you sees the same signal.
+    3. Exchange counterparty risk. You are simultaneously exposed to the operational risk of two CEX/DEX platforms. FTX was doing
+    funding arb when it collapsed.
+    4. Your specific moat (DEX perps) is real but hard. Drift and dYdX have lower liquidity, higher slippage, and smart contract risk.
+     GMX uses a unique pricing model (oracle-based, not order-book) that makes it behave differently from the funding rate model
+    you're using.
+
+    Which pairs have historically extreme divergence? Smaller altcoins on newer exchanges, but those also have the worst liquidity and
+     highest fee structures. The paradox: the best spreads are in the worst places to trade.
+
+    Verdict: At $500–$1,000, funding arb is mathematically unprofitable after fees unless you find a sustained 20%+/yr spread, which
+    would attract capital and close within days. Build the scanner as a product (MCP tool, SaaS dashboard) — let other people with
+    $100k+ use it. Don't trade it yourself at this capital level.
+
+    ---
+4. Strategy 3 Analysis: H36 Vault Product
+
+    Feasibility Score: 8/10 (as a demonstration), 5/10 (as a live startup)
+
+    H36 at 78.7% WR is your crown jewel. This is rare. A momentum signal with that win rate on 15-min BTC markets is genuinely
+    impressive — the market-maker side of your H43 disaster (-$85, 19 trades all loss) validates that market-making is hard, but
+    directional momentum on a 78.7% WR suggests you've found a structural pattern in how Polymarket lags Binance price discovery.
+
+    The vault-product model logic:
+
+    1. H36 generates consistent returns → routed into ERC-4626 vault
+    2. Vault issues paUSDC shares to LPs → LPs earn yield
+    3. PALPHA token holders receive fee share + governance rights
+    4. DAO controls risk parameters (drawdown limits, Kelly fraction)
+
+    This is exactly how Enzyme Finance, dHEDGE, and Nested Finance are structured. It's a real product category.
+ Hidden risks:
+
+    1. 78.7% WR may be regime-specific. How many trades is this based on? If it's 50 trades over 3 weeks, that's a promising signal,
+    not a validated edge. BTC momentum patterns shift with market structure — bull regimes vs sideways regimes have completely
+    different autocorrelation profiles.
+    2. Adverse selection at scale. The reason H36 works may be that you're a small player. If you route $10,000 (not $1,000) through
+    the same Polymarket markets, your own order moves the price, your fill quality degrades, and 78.7% becomes 61%.
+    3. Regulatory/legal risk is significant. Running a pooled investment vehicle that takes outside capital, even on-chain, implicates
+     securities law in most jurisdictions. In Hong Kong (where HKUST is), the SFC regulates "collective investment schemes." This
+    doesn't kill the project, but it means for real capital deployment, you need legal structure. For your class project, this is a
+    non-issue — just flag it in the risk section of your report.
+    4. Oracle dependency. Your vault on-chain uses MockUSDC and ChainLab testnet. Real deployment requires mainnet Polygon, real USDC,
+     and a real price oracle. The gap between testnet demo and mainnet product is 3–6 months of engineering.
+
+    Verdict: This is your strongest narrative for the professor. Frame it as: "We've built the infrastructure. H36 is the
+    proof-of-concept signal. The vault is the product wrapper. We need $50k seed capital to scale the signal and onboard LPs." That's
+    a coherent pitch.
+
+    ---
+    5. Integration Priority Ranking
+
+    Fastest to implement and test (paper trading <1 month):
+ 1. Strategy 1 (PM Near-Settlement Arb) — you already have the Gamma + CLOB APIs. A working scanner is 2–3 days of coding.
+    2. H36 integration into vault — you already have the vault and H36. It's a routing layer, not a new strategy.
+    3. Strategy 2 (Funding Arb Scanner) — building the MCP tool is fast, but validating it takes time because you need live
+    multi-exchange data.
+
+    Most likely to show profit in demo to professor:
+    1. H36 + Vault — you can show live on-chain transactions, real PnL, real hypothesis validation. Most impressive.
+    2. PM Near-Settlement Arb — visual scanner showing real Polymarket opportunities in real time, even without executing trades.
+
+    Best long-term startup moat:
+    1. Funding Arb Scanner (SaaS tool) — the product is the data, not the trade. Coinglass charges $29/month to 100k+ users for
+    inferior data. Your net-fee-inclusive DEX perp scanner is genuinely differentiated.
+    2. H36 Vault — if the signal holds, this is the core asset.
+    3. PM Near-Settlement Arb — crowded eventually, but first-mover in automated form.
+ ---
+    6. Competitive Differentiation & Revenue Model
+
+    Your defensible moat is the intersection, not any single component.
+
+    No one has: Polymarket near-settlement arb + funding rate scanner + momentum vault + DAO governance in one system. Each competitor
+     owns one slice. You own the architecture that connects them. Your value proposition to institutional prediction market traders
+    (who are coming — Kalshi is live in the US, Polymarket is growing) is: "We are the Bloomberg Terminal for on-chain prediction
+    market alpha."
+
+    Positioning statement for professor:
+
+    ▎ "PolyAlpha is a quant infrastructure protocol: we aggregate alpha signals (momentum, funding, near-settlement), size them using
+    ▎ empirical Kelly, route capital through an auditable on-chain vault, and distribute yield to token holders. Competitors sell
+    ▎ data; we sell a managed position."
+
+    Revenue model (ranked by viability at early stage):
+
+    1. Performance fee on vault AUM (2/20 model): This is the institutional standard. 2% management + 20% performance. At $100k AUM
+    this is $20k/yr + carry. Requires regulatory wrapper eventually.
+    2. SaaS API for funding rate + PM arb scanner ($29–$99/month): Lowest regulatory friction. Sell the data layer. This is what you
+    build first.
+    3. MCP tool licensing to agents: As AI agents proliferate, they will need market data tools. Your funding-arb-scanner as an MCP
+    tool is a B2B product for AI agent developers. Charge per-call or subscription. This is a 2025-2026 opportunity that most quant shops are missing entirely.
+
+    vs. Coinglass ($29/month): Your differentiation is DEX perps + net-fee math + agent-callable MCP format. Three real
+    differentiators. That's enough to charge the same price and win on quality.
+
+    ---
+    7. Harsh Verdict & Next Steps
+
+    Can this make money in 3 months with $500–$1,000?
+
+    Honestly: Strategy 1 can make $50–$200 in 3 months. Strategy 2 will lose money at this capital level. H36 can make $100–$400 if
+    you can automate execution reliably.
+
+    Total realistic 3-month P&L: $150–$600 with significant variance. That is real money with real edge, but not "quit school" money.
+    The value of this project is not the P&L — it's the infrastructure, the backtesting framework, the hypothesis validation
+    discipline, and the on-chain audit trail. Those are resume-grade artifacts.
+
+    The single most important thing you should build this week:
+
+    A live PM near-settlement scanner that finds real opportunities and emails/Telegrams them to you every 30 minutes. This costs 1–2
+    days to build, requires no additional capital, runs 24/7, and gives you real data about how often genuine opportunities exist and at what prices. It also makes for an incredibly compelling professor demo — you can show it running in real time.
+
+    What makes this fundable (not just a class project):
+
+    1. Historical audit trail on-chain. Every H36 signal logged with oracle hash = verifiable track record. This is what funds pay
+    for.
+    2. H36 needs 200+ trades at 78.7% WR to be statistically significant. Get there. 50 trades at 78.7% has wide confidence intervals;
+     200 trades at 72%+ is fundable.
+    3. A working version of your MCP tool with real exchange integrations. The scanner needs to return live data, not mock data, for
+    VCs to take it seriously.
+    4. The regulatory wrapper. Talk to a Hong Kong lawyer about structuring as a DAO-wrapped offshore fund (Cayman or BVI). This is
+    table stakes for institutional capital.
+
+    ---
+    8. Architecture Blueprint
+
+    ┌─────────────────────────────────────────────────────────────────────────────┐
+    │                         POLYALPHA PROTOCOL                                  │
+    │                    "Alpha → Size → Execute → Compound"                      │
+    └─────────────────────────────────────────────────────────────────────────────┘
+
+    [DATA LAYER]
+    ├── Binance CLOB (btc_signal.py: 1m klines, spot price)
+    ├── Polymarket Gamma API (market scanner: endDate, bestAsk, liquidity)
+ ├── Polymarket CLOB API (order book, execution)
+    ├── funding-arb-scanner MCP (9 CEX + DEX funding rates, net-fee calculation)
+    │   └── Tools: get_funding_rates(), calc_net_spread(), scan_opportunities()
+    ├── 6551 AI News API (get_news_sentiment() → bullish/bearish/neutral)
+    └── Binance OHLC → multi-coin momentum (H35/H36 input)
+
+           ▼
+    [JUDGMENT LAYER]
+    ├── btc_signal.py
+    │   ├── btc_momentum_to_probability()    ← rule-based, 0.3% threshold
+    │   ├── dual_source_oracle_check()       ← 15% divergence cap
+    │   ├── get_polymarket_v2_odds()         ← Gamma fallback
+    │   ├── empirical_kelly()                ← 50-trade rolling window
+    │   └── monte_carlo_kelly()              ← fallback if <10 trades
+    ├── PM Near-Settlement Scanner [TO BUILD]
+    │   ├── scan_near_settlement()           ← endDate < now + 2h
+    │   ├── estimate_net_return()            ← (1 - entry) - gas - fees
+    │   └── oracle_risk_score()              ← UMA dispute probability
+    ├── Funding Arb Scanner (funding-arb-scanner MCP)
+    │   └── scan_opportunities()            ← net spread after taker fees└── News Sentiment Filter
+        └── get_news_sentiment()             ← skip UP if bearish
+
+           ▼
+    [HYPOTHESIS VALIDATION LAYER]
+    ├── backtest.py
+    │   ├── run_backtest()                   ← cash-flow PnL (runes_leo method)
+    │   ├── empirical_kelly() routing        ← actual WR from trade history
+    │   ├── Kill Criteria: WR<52%, DD>15%, Slippage>2%
+    │   └── _write_autopsy_report()         ← structured hypothesis death record
+    └── Kill/Pause/Alive status → fed back to Agent Layer
+
+           ▼
+    [AGENT LAYER]
+    ├── agent.py (orchestrator)
+    │   ├── run_agent()                      ← main loop, 60s scan
+    │   ├── get_news_sentiment()             ← pre-filter
+    │   ├── safety_check_chain()             ← 6-step BitPilot pattern
+    │   └── log_position_on_chain()          ← vault.logPosition() ├── [MISSING] pm_arb_agent.py           ← near-settlement scanner loop
+    └── [MISSING] funding_arb_agent.py      ← delta-neutral executor
+
+           ▼
+    [EXECUTION LAYER]
+    ├── Polymarket CLOB (paper: logPosition, live: py-clob-client-v2)
+    ├── [MISSING] Hyperliquid SDK            ← funding arb leg 1
+    ├── [MISSING] Paradex/Drift SDK          ← funding arb leg 2
+    └── Gas optimization: batch transactions on Polygon
+
+           ▼
+    [VAULT LAYER]  ← PolyAlpha Smart Contracts (ChainLab Testnet)
+    ├── PolyAlphaVault.sol (ERC-4626)
+    │   ├── logPosition()                    ← on-chain audit trail
+    │   ├── currentDrawdownBps()             ← circuit breaker
+    │   └── halted()                         ← emergency stop
+    ├── ALPHAStakingPool.sol                 ← LP yield distribution
+    ├── PALPHABuybackBurn.sol                ← fee → token value accrual
+    └── PolyAlphaDAO.sol                     ← parameter governance (48h timelock)└── PolyAlphaDAO.sol                     ← parameter governance (48h timelock)
+
+           ▼
+    [FRONTEND / PRODUCT LAYER]
+    ├── React Dashboard (4 pages: Vault, Signal Log, Backtest, PALPHA Hub)
+    ├── Social Feed (polyainews-inspired)
+    ├── Backtest visualizations (equity curve, hypothesis status)
+    └── [FUTURE] SaaS API portal for funding-arb-scanner subscribers
+
+    What's missing (prioritized):
+    1. pm_arb_agent.py — near-settlement scanner (build this week)
+    2. Live Hyperliquid + Paradex integration in funding-arb-scanner (3/6 tools done, finish remaining 3)
+    3. oracle_risk_score() — UMA dispute probability estimator (critical for Strategy 1)
+    4. Mainnet deployment path (regulatory wrapper + real USDC integration)
+
+    ---
+    9. Specific Code/API Pointers (for Claude Code implementation)
+
+    A. PM Near-Settlement Scanner (implement in agent/pm_arb_agent.py)
+
+    # API endpoints
+    GAMMA_API = "https://gamma-api.polymarket.com"
+    CLOB_API  = "https://clob.polymarket.com"CLOB_API  = "https://clob.polymarket.com"
+
+    def scan_near_settlement(max_hours: int = 2) -> list[dict]:
+        """GET /markets?active=true&closed=false&limit=100
+        Filter: endDate < datetime.now() + timedelta(hours=max_hours)
+        Returns markets sorted by (1 - bestAsk) desc — highest certainty first
+        """
+
+    def estimate_net_return(
+        entry_price: float,    # e.g. 0.95 (YES shares)
+        notional_usd: float,   # e.g. 500
+        polygon_gwei: int = 30,
+        clob_fee_pct: float = 0.001,  # 0.1% taker
+    ) -> dict:
+        """Returns: {"gross": float, "gas_usd": float, "fee_usd": float, "net": float, "net_pct": float}"""
+
+    def oracle_risk_score(market: dict) -> float:
+        """Heuristic: markets with UMA resolution, past disputes, or 'contingent' language
+        return higher risk score (0.0 = safe, 1.0 = high dispute risk).
+        Check market['resolutionSource'] for UMA vs Chainlink vs manual."""B. Funding Arb Scanner MCP tools (complete funding-arb-scanner, tools 4–6)
+
+    # Tool 4: DEX perp funding rates
+    def get_dex_funding_rates(protocols: list = ["drift", "gmx", "lighter"]) -> dict:
+        # Drift: GET https://mainnet-beta.api.drift.trade/v2/funding-rates
+        # dYdX v4: GET https://indexer.dydx.trade/v4/perpetualMarkets
+        # GMX v2: onchain read via Arbitrum RPC (GMX DataStore contract)
+
+    # Tool 5: Cross-venue net spread calculator
+    def calc_cross_venue_net_spread(
+        symbol: str,
+        long_venue: str,
+        short_venue: str,
+        notional_usd: float,
+        holding_days: int = 1,
+    ) -> dict:
+        """Returns: {"gross_annualized": float, "total_fees_usd": float,                  "net_daily_usd": float, "breakeven_days": int, "viable": bool}"""
+
+    # Tool 6: Opportunity ranker
+    def rank_opportunities(min_net_daily_usd: float = 0.50) -> list[dict]:
+        """Returns top 5 cross-venue pairs sorted by net_daily_usd after fees.
+        Only returns pairs where breakeven_days < 30."""
+
+    C. Empirical Kelly integration in generate_signal() — already done in btc_signal.py
+
+    Pass trade_history from a persistent JSON file (agent/logs/trade_history.jsonl) that agent.py appends to on each signal:
+    # In agent.py, after each logged position:
+    with open("logs/trade_history.jsonl", "a") as f:
+        f.write(json.dumps({"ts": signal.timestamp, "won": None, "side": signal.side}) + "\n")
+    # Load at startup:
+    trade_history = [json.loads(l) for l in open("logs/trade_history.jsonl") if l.strip()]
+
+    D. File structure recommendation
+
+    agent/
+    ├── agent.py              (orchestrator — existing)
+    ├── btc_signal.py         (signal engine — existing + upgraded)
+    ├── backtest.py           (hypothesis validation — existing + upgraded)
+    ├── pm_arb_agent.py       [TO BUILD — near-settlement scanner]
+    ├── funding_arb_agent.py  [TO BUILD — delta-neutral executor stub] └── logs/
+        ├── trade_history.jsonl      (empirical Kelly input)
+        ├── H1_BTC_Momentum_autopsy.txt
+        └── agent_log.jsonl
+
+    funding-arb-scanner/      (separate MCP server repo — existing, 3/6 tools done)
+    ├── server.py
+    ├── tools/
+    │   ├── cex_funding.py    (tools 1–3, done)
+    │   ├── dex_funding.py    [TO BUILD — tool 4]
+    │   ├── net_spread.py     [TO BUILD — tool 5]
+    │   └── ranker.py         [TO BUILD — tool 6]
+
+    E. Key MCP tool invocations (for Claude Code to wire into agent.py)
+
+    # When funding-arb-scanner is running as an MCP server:
+    # Tool call format (via MCP client):
+    opportunities = mcp_client.call("funding-arb-scanner", "rank_opportunities",
+                                     {"min_net_daily_usd": 0.50})
+    # Tool call for near-settlement:
+    arb_markets = mcp_client.call("polyalpha-pm-arb", "scan_near_settlement",
+                                   {"max_hours": 2, "min_certainty": 0.93})
+    Final implementation priority for this week:
+    1. pm_arb_agent.py — scan_near_settlement() + estimate_net_return() + Telegram alert (1–2 days)
+    2. Complete funding-arb-scanner tools 4–6 for DEX perps (2–3 days)
+    3. Wire trade_history.jsonl persistence into agent.py so empirical_kelly() has real data (2 hours)
+    4. Run 50 more H36 paper trades to build statistical significance (ongoing)
+
+]
+
+```
+<<< PASTE CLAUDE OPUS FULL RESPONSE HERE >>>
+```
+
+***
+
+## [CONTEXT & MEMORY — Read Before Starting Any Task]
+
+**Project:** PolyAlpha Protocol (ISOM3270 Final Project → Startup Pivot)
+**Working Directory:** `C:\Users\user\Desktop\Dev.items.folder\ISOM3270_Startup`
+**GitHub:** `YongWilliam-ai/polyalpha-protocol` (private)
+**Phase:** Paper Trading (scanning only — NO trade execution, NO private keys)
+
+### What Is Already Complete (Do NOT Touch)
+- `contracts/` — All Solidity contracts (Vault, Token, Staking, DAO) — **DO NOT MODIFY**
+- `frontend/` — React/Vite dashboard — **DO NOT MODIFY**
+- `agent/agent.py` — Existing main agent loop (modify only the `run_agent()` function)
+- `backtest/backtest.py` — Backtest engine — **DO NOT MODIFY**
+
+### What We Are Building Now
+The agent is pivoting from simple BTC momentum → **two arbitrage scanners**:
+1. **Funding Rate Arb Scanner** — uses `funding-arb-scanner` MCP ([@hunterweb303](https://github.com/duolaAmengweb3/funding-arb-scanner))
+2. **PolyMarket Fast-Resolution Scanner** — new Python script using Gamma API + CLOB API
+
+The Opus evaluation above contains specific function signatures, API endpoints, and architecture recommendations that you MUST follow when implementing.
+
+***
+
+## [TASK 1: MCP Server Configuration]
+
+Create or update `.claude/mcp.json` in the project root with the following MCP servers:
+
+```json
+{
+  "mcpServers": {
+    "funding-arb-scanner": {
+      "command": "npx",
+      "args": ["-y", "@cexagent/funding-arb-scanner"],
+      "description": "Scans 9 exchanges for funding rate arbitrage. Net spread after taker fees. By @hunterweb303."
+    },
+    "hyperliquid-mcp": {
+      "command": "npx",
+      "args": ["-y", "@cexagent/hyperliquid-mcp"],
+      "description": "Hyperliquid market data, whale positions, liquidation risk. 22 tools, 4 modules."
+    }
+  }
+}
+```
+
+Verify the file is valid JSON. Then confirm with: `cat .claude/mcp.json`
+
+***
+
+## [TASK 2: Create `agent/arb_scanner.py`]
+
+Create a new file `agent/arb_scanner.py`. This is a **read-only scanning script** (Paper Trading phase — NO trade execution).
+
+The script must implement exactly these two functions:
+
+### Function 1: `scan_funding_arbitrage()`
+
+```python
+# Conceptual wrapper around @hunterweb303's funding-rates-mcp scan_funding_diff() tool
+# Reference: https://github.com/duolaAmengweb3/funding-arb-scanner
+# During Paper Trading phase, this calls the real API but logs results only (no execution)
+def scan_funding_arbitrage(min_bps: int = 50) -> list[dict]:
+    """
+    Scans 9 exchanges for funding rate arbitrage opportunities.
+    Returns top 3 pairs with highest net spread (after taker fees).
+    
+    Data sources: Hyperliquid, Binance, Bybit, OKX, dYdX, Drift, Vertex, Paradex, Aevo
+    
+    Returns:
+        list of dicts: [{symbol, long_venue, short_venue, gross_spread_bps, 
+                         net_spread_bps, annualized_pct, estimated_8h_pnl_per_10k}]
+    """
+```
+
+Implementation requirements:
+- Try to call the real funding rate APIs for HL and Binance (public endpoints, no auth needed)
+  - HL: `https://api.hyperliquid.xyz/info` (POST, type: "metaAndAssetCtxs")
+  - Binance: `https://fapi.binance.com/fapi/v1/fundingRate` (GET, no auth)
+  - OKX: `https://www.okx.com/api/v5/public/funding-rate?instType=SWAP` (GET, no auth)
+- Calculate gross spread between highest and lowest funding rate across venues
+- Apply estimated taker fee of 0.05% per leg (0.1% round-trip) to get net spread
+- If any API call fails, fall back to **hardcoded mock data** (do NOT crash)
+- Mock fallback example: `{"symbol": "BTC", "long_venue": "Paradex", "short_venue": "HL", "gross_spread_bps": 115, "net_spread_bps": 95, "annualized_pct": 3.47, "estimated_8h_pnl_per_10k": 0.95}`
+- Return top 3 opportunities sorted by `net_spread_bps` descending
+- Log results to console with a timestamp
+
+### Function 2: `scan_polymarket_fast_resolution()`
+
+```python
+def scan_polymarket_fast_resolution(
+    min_price: float = 0.95,
+    max_hours_to_end: int = 2,
+    min_volume_usd: float = 10000
+) -> list[dict]:
+    """
+    Scans PolyMarket CLOB for markets near settlement with high-certainty pricing.
+    
+    Strategy logic: If a market's YES price > 0.95 AND it resolves in <2 hours,
+    buying YES at 0.96 captures a ~4% spread assuming correct resolution.
+    
+    APIs used:
+      - Gamma API: https://gamma-api.polymarket.com/markets
+      - CLOB API:  https://clob.polymarket.com/markets (for live order book)
+    
+    Returns:
+        list of dicts: [{market_id, question, end_time, yes_price, no_price,
+                         volume_24h, estimated_net_return_pct, confidence_label}]
+    """
+```
+
+Implementation requirements:
+- Call `https://gamma-api.polymarket.com/markets?active=true&limit=100`
+- Filter markets where:
+  - `end_date_iso < now + max_hours_to_end * 3600`
+  - `best_bid > min_price` OR `best_ask < (1 - min_price)` for either YES or NO token
+  - `volume_24h > min_volume_usd`
+- For each qualifying market, calculate:
+  - `estimated_gross_return = 1.0 - entry_price` (e.g., buy at 0.96 → gross 4%)
+  - `estimated_gas_fee_pct = 0.005` (0.5% estimate for Polygon gas)
+  - `estimated_net_return_pct = estimated_gross_return - estimated_gas_fee_pct`
+  - `confidence_label`: "HIGH" if volume > $50k and price > 0.97, "MEDIUM" otherwise
+- If PolyMarket API is unavailable, return mock data (do NOT crash)
+- Log each qualifying market to console with: question, end time, price, estimated net return
+- Add comment: `# WARNING: Resolution oracle delay risk — verify event has actually concluded IRL before entering`
+
+### Main Block
+
+```python
+if __name__ == "__main__":
+    print("=" * 60)
+    print("PolyAlpha Protocol — Arbitrage Scanner (Paper Trading Mode)")
+    print("=" * 60)
+    
+    print("\n[1/2] Scanning Funding Rate Arbitrage...")
+    funding_opps = scan_funding_arbitrage(min_bps=30)
+    
+    print("\n[2/2] Scanning PolyMarket Fast-Resolution...")
+    poly_opps = scan_polymarket_fast_resolution(min_price=0.95, max_hours_to_end=4)
+    
+    # Summary
+    print("\n" + "=" * 60)
+    print(f"SCAN COMPLETE: {len(funding_opps)} funding arb + {len(poly_opps)} PolyMarket opportunities")
+    print("=" * 60)
+```
+
+***
+
+## [TASK 3: Update `agent/agent.py` Main Loop]
+
+Modify `agent/agent.py` with these specific changes only:
+
+1. **Add imports** at the top of the file (after existing imports):
+```python
+from arb_scanner import scan_funding_arbitrage, scan_polymarket_fast_resolution
+import json
+from pathlib import Path
+```
+
+2. **Add logging utility** (before `run_agent()` function):
+```python
+LOG_FILE = Path("agent/logs/arbitrage_opportunities.txt")
+LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+def log_opportunity(strategy: str, data: dict) -> None:
+    """Append arbitrage opportunity to log file with timestamp."""
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "strategy": strategy,
+        "data": data
+    }
+    with open(LOG_FILE, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+    print(f"[LOG] Opportunity logged: {strategy} — {data.get('symbol', data.get('question', 'unknown'))}")
+```
+
+3. **Modify `run_agent()` loop** — add arb scanning block after existing BTC momentum check:
+```python
+# === ARBITRAGE SCANNING BLOCK (added for ISOM3270 startup pivot) ===
+# Paper Trading phase: scan only, no execution
+# Reference: @hunterweb303 funding-rates-mcp + PolyAlpha PolyMarket strategy
+
+funding_opportunities = scan_funding_arbitrage(min_bps=30)
+for opp in funding_opportunities:
+    if opp["net_spread_bps"] > 50:  # Only log if spread > 50bps after fees
+        log_opportunity("FUNDING_ARB", opp)
+
+poly_opportunities = scan_polymarket_fast_resolution(min_price=0.95, max_hours_to_end=2)
+for opp in poly_opportunities:
+    if opp["estimated_net_return_pct"] > 0.02:  # Only log if net return > 2%
+        log_opportunity("POLYMARKET_FAST_RESOLUTION", opp)
+# === END ARBITRAGE SCANNING BLOCK ===
+```
+
+***
+
+## [TASK 4: Create `agent/logs/.gitkeep`]
+
+Create the logs directory and a `.gitkeep` file so Git tracks the folder:
+```bash
+mkdir -p agent/logs
+touch agent/logs/.gitkeep
+echo "agent/logs/*.txt" >> .gitignore
+```
+
+***
+
+## [CONSTRAINTS — Strictly Follow These]
+
+- ❌ **DO NOT** modify any Solidity contracts or frontend files
+- ❌ **DO NOT** implement private key signing or actual trade execution
+- ❌ **DO NOT** store API keys in code (use `os.getenv()` pattern with comments)
+- ✅ **All functions must have try/except** with graceful fallback to mock data
+- ✅ **All API calls must have a 5-second timeout**: `requests.get(url, timeout=5)`
+- ✅ **Comment every block** referencing the source: `# @hunterweb303 funding-rates-mcp` or `# PolyAlpha Strategy 1`
+- ✅ **Follow existing code style** in `agent.py` (check indentation, naming convention first)
+
+***
+
+## [TASK 5: Test & Verify]
+
+After all files are created/modified:
+
+1. Run the scanner:
+```bash
+cd C:\Users\user\Desktop\Dev.items.folder\ISOM3270_Startup
+python agent/arb_scanner.py
+```
+
+2. Verify output shows at least mock data (even if APIs are unreachable)
+
+3. Check log file was created (it may be empty if no real opportunities found in mock mode):
+```bash
+cat agent/logs/arbitrage_opportunities.txt
+```
+
+***
+
+## [TASK 6: Commit & Push]
+
+Once everything runs without errors, execute:
+
+```bash
+git add -A
+git commit -m "feat: integrate funding-rates-mcp and PolyMarket fast-resolution scanner
+
+- Add .claude/mcp.json with funding-arb-scanner + hyperliquid-mcp servers
+- Create agent/arb_scanner.py with scan_funding_arbitrage() and scan_polymarket_fast_resolution()
+- Update agent/agent.py run_agent() loop to call arb scanners
+- Add logging to agent/logs/arbitrage_opportunities.txt
+- Paper Trading phase: scan-only, no trade execution
+
+Reference: @hunterweb303 funding-rates-mcp (https://github.com/duolaAmengweb3/funding-arb-scanner)
+ISOM3270 PolyAlpha Protocol startup pivot — Phase 1 Paper Trading"
+
+git pull origin main --rebase
+git push origin main
+```
+
+***
+
+## [SUCCESS CRITERIA]
+
+Tell me the task is complete when:
+- [ ] `.claude/mcp.json` exists and is valid JSON
+- [ ] `agent/arb_scanner.py` exists and `python agent/arb_scanner.py` runs without crashing
+- [ ] `agent/agent.py` imports and calls the two scanner functions
+- [ ] `agent/logs/` directory exists with `.gitkeep`
+- [ ] Git commit pushed successfully
+
+If any task fails, show me the exact error and your proposed fix before proceeding.
