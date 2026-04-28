@@ -3,19 +3,29 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@tanstack/react-table": "^8.16.0",
+    "ethers": "^6.11.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-scripts": "5.0.1",
-    "ethers": "^6.11.1",
-    "recharts": "^2.12.4",
-    "@tanstack/react-table": "^8.16.0"
+    "recharts": "^2.12.4"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build"
   },
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
-    "development": ["last 1 chrome version", "last 1 firefox version"]
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version"
+    ]
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
   }
 }

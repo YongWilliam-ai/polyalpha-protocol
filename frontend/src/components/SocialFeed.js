@@ -1,180 +1,141 @@
 /**
- * SocialFeed.js — Mock X (Twitter) market-alpha feed widget.
- * Inspired by polyainews and brief.day1 open-source social aggregators.
- * Uses simulated tweets since a live Twitter API key is not available.
+ * SocialFeed.js — Live Signal Radar (quantitative terminal format)
+ * Inspired by polyainews · simulated feed, no live API key required.
  */
 
 import React, { useState, useEffect } from "react";
 
-const TWEETS = [
+const SIGNALS = [
   {
     id: 1,
-    handle: "@polyainews",
-    name: "PolyAI News",
-    initials: "PA",
-    color: "#e05050",
-    time: "1m",
-    content:
-      "BTC just printed a +0.41% candle in 7 minutes. YES side of 15m market still at 54%. Momentum signal ACTIVE — market hasn't caught up yet. #Polymarket",
-    likes: 312,
-    rts: 97,
-    tag: "SIGNAL",
-    tagColor: "#5a3adc",
+    timestamp: "13:04:21",
+    source:    "PolyAI News",
+    badge:     "SIGNAL",
+    content:   "BTC just printed a +0.41% candle in 7 minutes. YES side of 15m market still at 54%. Momentum signal ACTIVE — market hasn't caught up yet.",
+    confidence: 84,
+    edge:       2.1,
   },
   {
     id: 2,
-    handle: "@runes_leo",
-    name: "runes_leo",
-    initials: "RL",
-    color: "#2a7a5a",
-    time: "6m",
-    content:
-      "Three strategies killed this week. All three autopsy reports written. Dead strategies are more valuable than live ones — they tell you exactly why a path doesn't work. That's the framework.",
-    likes: 203,
-    rts: 61,
-    tag: "ALPHA",
-    tagColor: "#2a7a5a",
+    timestamp: "12:58:07",
+    source:    "runes_leo",
+    badge:     "ALPHA",
+    content:   "Three strategies killed this week. All three autopsy reports written. Dead strategies are more valuable than live ones — they tell you exactly why a path doesn't work. That's the framework.",
+    confidence: 91,
+    edge:       3.4,
   },
   {
     id: 3,
-    handle: "@polybroapp",
-    name: "PolyBro",
-    initials: "PB",
-    color: "#7c3aed",
-    time: "14m",
-    content:
-      "Reminder: Kelly criterion is a maximum, not a target. Quarter-Kelly is how serious quants actually size. Your edge estimate is never as good as you think it is.",
-    likes: 445,
-    rts: 134,
-    tag: "RISK",
-    tagColor: "#b45309",
+    timestamp: "12:50:12",
+    source:    "PolyBro",
+    badge:     "RISK",
+    content:   "Reminder: Kelly criterion is a maximum, not a target. Quarter-Kelly is how serious quants actually size. Your edge estimate is never as good as you think it is.",
+    confidence: 78,
+    edge:       1.2,
   },
   {
     id: 4,
-    handle: "@polymarket_news",
-    name: "Polymarket News",
-    initials: "PM",
-    color: "#5a3adc",
-    time: "21m",
-    content:
-      "Volume alert: BTC 15m high/low markets crossed $2.1M in 4 hours. Institutional flow is picking up significantly. #Polymarket #BTC",
-    likes: 72,
-    rts: 19,
-    tag: "VOL",
-    tagColor: "#0e7490",
+    timestamp: "12:43:05",
+    source:    "Polymarket News",
+    badge:     "VOLUME",
+    content:   "Volume alert: BTC 15m high/low markets crossed $2.1M in 4 hours. Institutional flow is picking up significantly. #Polymarket #BTC",
+    confidence: 66,
+    edge:       0.8,
   },
   {
     id: 5,
-    handle: "@runes_leo",
-    name: "runes_leo",
-    initials: "RL",
-    color: "#2a7a5a",
-    time: "38m",
-    content:
-      "Hypothesis H7_ETH_Breakout: 50 trades in, win rate 56.2%, max DD 8.3%. Still ALIVE. Empirical Kelly shrinking to 2.9% as post-rally uncertainty grows.",
-    likes: 156,
-    rts: 44,
-    tag: "ALPHA",
-    tagColor: "#2a7a5a",
+    timestamp: "12:26:19",
+    source:    "runes_leo",
+    badge:     "ALPHA",
+    content:   "Hypothesis H7_ETH_Breakout: 50 trades in, win rate 56.2%, max DD 8.3%. Still ALIVE. Empirical Kelly shrinking to 2.9% as post-rally uncertainty grows.",
+    confidence: 73,
+    edge:       2.8,
   },
   {
     id: 6,
-    handle: "@polyainews",
-    name: "PolyAI News",
-    initials: "PA",
-    color: "#e05050",
-    time: "52m",
-    content:
-      "News sentiment analysis: 7 bearish headlines in last 30 min. Signal filter triggered — skipping UP bets until macro clears. Discipline > FOMO.",
-    likes: 88,
-    rts: 23,
-    tag: "FILTER",
-    tagColor: "#7c3aed",
+    timestamp: "12:12:44",
+    source:    "PolyAI News",
+    badge:     "FILTER",
+    content:   "News sentiment analysis: 7 bearish headlines in last 30 min. Signal filter triggered — skipping UP bets until macro clears. Discipline > FOMO.",
+    confidence: 62,
+    edge:      -0.4,
   },
   {
     id: 7,
-    handle: "@polybroapp",
-    name: "PolyBro",
-    initials: "PB",
-    color: "#7c3aed",
-    time: "1h",
-    content:
-      "Quant edge on binary markets: the key isn't picking the right outcome — it's finding markets where the crowd is systematically mispricing momentum. Polymarket is still early.",
-    likes: 88,
-    rts: 23,
-    tag: "ALPHA",
-    tagColor: "#2a7a5a",
+    timestamp: "12:04:01",
+    source:    "PolyBro",
+    badge:     "ALPHA",
+    content:   "Quant edge on binary markets: the key isn't picking the right outcome — it's finding markets where the crowd is systematically mispricing momentum. Polymarket is still early.",
+    confidence: 79,
+    edge:       1.9,
   },
 ];
+
+const BADGE_CLS = {
+  SIGNAL: "bg-orange-900/40 text-orange-400",
+  ALPHA:  "bg-green-900/30 text-green-400",
+  RISK:   "bg-yellow-900/30 text-yellow-400",
+  VOLUME: "bg-blue-900/30 text-blue-400",
+  FILTER: "bg-purple-900/30 text-purple-400",
+};
 
 export default function SocialFeed() {
   const [highlighted, setHighlighted] = useState(0);
 
-  // Cycle the "new tweet" highlight every 12 seconds
   useEffect(() => {
-    const id = setInterval(() => {
-      setHighlighted((h) => (h + 1) % TWEETS.length);
-    }, 12_000);
+    const id = setInterval(() => setHighlighted((h) => (h + 1) % SIGNALS.length), 12_000);
     return () => clearInterval(id);
   }, []);
 
   return (
-    <div className="social-feed">
-      <div className="social-feed-header">
-        <div className="social-feed-title">
-          <span className="live-dot" />
-          Live Market Alpha
+    <div className="bg-surface border border-gray-800 rounded-lg overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+          </span>
+          <span className="text-sm font-mono font-bold text-white">Live Signal Radar</span>
         </div>
-        <span className="social-feed-sub">Inspired by polyainews</span>
+        <span className="text-xs text-gray-600 font-mono">polyainews</span>
       </div>
 
-      <div className="social-feed-list">
-        {TWEETS.map((t, i) => (
+      {/* Signal list */}
+      <div className="h-[600px] overflow-y-auto custom-scrollbar">
+        {SIGNALS.map((s, i) => (
           <div
-            key={t.id}
-            className={`tweet ${i === highlighted ? "tweet-new" : ""}`}
+            key={s.id}
+            className={`border-b border-gray-800/50 p-4 hover:bg-gray-800/20 transition-colors animate-fade-in-up ${
+              i === highlighted ? "border-l-2 border-l-accent bg-accent/5" : ""
+            }`}
           >
-            <div className="tweet-row">
-              <div
-                className="tweet-avatar"
-                style={{ background: t.color }}
-              >
-                {t.initials}
-              </div>
-              <div className="tweet-body">
-                <div className="tweet-meta-top">
-                  <span className="tweet-name">{t.name}</span>
-                  <span className="tweet-handle">{t.handle}</span>
-                  <span className="tweet-time">· {t.time}</span>
-                  <span
-                    className="tweet-tag"
-                    style={{ background: t.tagColor + "33", color: t.tagColor }}
-                  >
-                    {t.tag}
-                  </span>
-                </div>
-                <p className="tweet-content">{t.content}</p>
-                <div className="tweet-actions">
-                  <span className="tweet-stat">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                    </svg>
-                    {t.likes}
-                  </span>
-                  <span className="tweet-stat">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
-                    </svg>
-                    {t.rts}
-                  </span>
-                </div>
-              </div>
+            {/* Header row */}
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="font-mono text-xs text-gray-500">{s.timestamp}</span>
+              <span className="font-mono text-xs text-accent uppercase">{s.source}</span>
+              <span className={`ml-auto px-2 py-0.5 rounded text-[10px] font-mono ${BADGE_CLS[s.badge] || "bg-gray-800 text-gray-300"}`}>
+                {s.badge}
+              </span>
+            </div>
+            {/* Content */}
+            <p className="text-sm text-gray-300 leading-relaxed">{s.content}</p>
+            {/* Quantitative metrics */}
+            <div className="mt-2 text-xs font-mono text-gray-600 flex gap-4">
+              <span>Confidence: <span className="text-gray-400">{s.confidence}%</span></span>
+              <span>
+                Edge:{" "}
+                <span className={s.edge >= 0 ? "text-success" : "text-red-400"}>
+                  {s.edge >= 0 ? "+" : ""}{s.edge}%
+                </span>
+              </span>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="social-feed-footer">
+      {/* Footer */}
+      <div className="text-[10px] font-mono text-warning text-center p-2 border-t border-gray-800">
         Simulated feed · No live API key required
       </div>
     </div>

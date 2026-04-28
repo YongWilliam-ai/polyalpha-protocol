@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { VAULT_ADDRESS, VAULT_ABI, POLYGONSCAN_URL, CHAIN_ID, CHAIN_NAME, RPC_URL } from "../config";
 import SocialFeed from "../components/SocialFeed";
+import { DataCard } from "../components/DataCard";
 
 const USDC_ABI = [
   "function balanceOf(address) view returns (uint256)",
@@ -9,7 +10,6 @@ const USDC_ABI = [
   "function allowance(address owner, address spender) view returns (uint256)",
 ];
 
-// ── Toast hook ────────────────────────────────────────────────────────────────
 function useToast() {
   const [toasts, setToasts] = useState([]);
   const show = useCallback((message, type = "info") => {
@@ -20,12 +20,22 @@ function useToast() {
   return { toasts, show };
 }
 
+const TOAST_CLS = {
+  info:    "bg-surface border border-gray-700 text-gray-300",
+  success: "bg-green-950 border border-success/30 text-success",
+  error:   "bg-red-950 border border-red-500/30 text-red-300",
+};
+
 function ToastStack({ toasts }) {
   if (!toasts.length) return null;
   return (
-    <div className="toast-stack">
+    <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
       {toasts.map((t) => (
-        <div key={t.id} className={`toast toast-${t.type}`}>
+        <div
+          key={t.id}
+          className={`px-4 py-3 rounded-lg text-sm font-medium min-w-[220px] max-w-sm shadow-xl ${TOAST_CLS[t.type] || TOAST_CLS.info}`}
+          style={{ animation: "toast-in 0.2s ease" }}
+        >
           {t.message}
         </div>
       ))}
@@ -33,7 +43,6 @@ function ToastStack({ toasts }) {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
 export default function VaultPage() {
   const [wallet, setWallet]           = useState(null);
   const [provider, setProvider]       = useState(null);
@@ -44,14 +53,12 @@ export default function VaultPage() {
   const [loading, setLoading]         = useState(false);
   const { toasts, show }              = useToast();
 
-  // Auto-dismiss terminal txStatus after 9 s (leaves time to read + click link)
   useEffect(() => {
     if (!txStatus) return;
     const id = setTimeout(() => setTxStatus(""), 9000);
     return () => clearTimeout(id);
   }, [txStatus]);
 
-  // ── Read vault state (public RPC, no wallet needed) ────────────────────────
   const loadVaultStats = useCallback(async () => {
     if (!VAULT_ADDRESS) { setVaultStats({ notDeployed: true }); return; }
     try {
@@ -79,7 +86,6 @@ export default function VaultPage() {
 
   useEffect(() => { loadVaultStats(); }, [loadVaultStats]);
 
-  // ── Connect MetaMask ────────────────────────────────────────────────────────
   const connectWallet = async () => {
     if (!window.ethereum) { show("Install MetaMask to connect", "error"); return; }
     try {
@@ -100,12 +106,11 @@ export default function VaultPage() {
       setProvider(prov);
       setWallet(accounts[0]);
       show(`Wallet connected: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`, "success");
-    } catch (e) {
+    } catch {
       show("Wallet connection cancelled", "error");
     }
   };
 
-  // ── Deposit ─────────────────────────────────────────────────────────────────
   const handleDeposit = async () => {
     if (!provider || !depositAmt) return;
     setLoading(true);
@@ -117,12 +122,10 @@ export default function VaultPage() {
       const usdcAddress = await vault.asset();
       const usdc        = new ethers.Contract(usdcAddress, USDC_ABI, signer);
       const amount      = ethers.parseUnits(depositAmt, 6);
-
-      const approveTx = await usdc.approve(VAULT_ADDRESS, amount);
+      const approveTx   = await usdc.approve(VAULT_ADDRESS, amount);
       await approveTx.wait();
       setTxStatus("Depositing...");
       show("Depositing USDC into vault...", "info");
-
       const depositTx = await vault.deposit(amount, wallet);
       const receipt   = await depositTx.wait();
       setTxStatus(`Deposited! Tx: ${receipt.hash}`);
@@ -131,22 +134,21 @@ export default function VaultPage() {
       loadVaultStats();
     } catch (e) {
       setTxStatus(`Error: ${e.message}`);
-      show("Deposit failed — see status below", "error");
+      show("Deposit failed", "error");
     }
     setLoading(false);
   };
 
-  // ── Withdraw ────────────────────────────────────────────────────────────────
   const handleWithdraw = async () => {
     if (!provider || !withdrawAmt) return;
     setLoading(true);
     setTxStatus("Withdrawing...");
     show("Sending withdrawal transaction...", "info");
     try {
-      const signer = await provider.getSigner();
-      const vault  = new ethers.Contract(VAULT_ADDRESS, VAULT_ABI, signer);
-      const amount = ethers.parseUnits(withdrawAmt, 6);
-      const tx     = await vault.withdraw(amount, wallet, wallet);
+      const signer  = await provider.getSigner();
+      const vault   = new ethers.Contract(VAULT_ADDRESS, VAULT_ABI, signer);
+      const amount  = ethers.parseUnits(withdrawAmt, 6);
+      const tx      = await vault.withdraw(amount, wallet, wallet);
       const receipt = await tx.wait();
       setTxStatus(`Withdrawn! Tx: ${receipt.hash}`);
       show(`Withdrew ${withdrawAmt} USDC successfully`, "success");
@@ -154,87 +156,92 @@ export default function VaultPage() {
       loadVaultStats();
     } catch (e) {
       setTxStatus(`Error: ${e.message}`);
-      show("Withdrawal failed — see status below", "error");
+      show("Withdrawal failed", "error");
     }
     setLoading(false);
   };
 
-  // ── Early returns ───────────────────────────────────────────────────────────
   if (!VAULT_ADDRESS) {
     return (
-      <div className="page">
-        <div className="notice warning">
-          <strong>Vault not deployed yet.</strong><br />
-          Run: <code>npm run deploy:amoy</code> then set <code>REACT_APP_VAULT_ADDRESS</code> in frontend/.env
-        </div>
+      <div className="bg-yellow-950 border border-yellow-700/30 text-yellow-200 p-4 rounded-lg text-sm">
+        <strong>Vault not deployed yet.</strong> Run:{" "}
+        <code className="bg-gray-900 px-1 rounded">npm run deploy:amoy</code> then set{" "}
+        <code className="bg-gray-900 px-1 rounded">REACT_APP_VAULT_ADDRESS</code> in frontend/.env
       </div>
     );
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="page">
+    <div>
       <ToastStack toasts={toasts} />
 
-      <div className="vault-layout">
-        {/* ── Left: vault content ── */}
-        <div className="vault-main">
-          <div className="page-header">
-            <h2>Vault Overview</h2>
-            {vaultStats && !vaultStats.notDeployed && !vaultStats.error && (
-              <span className={`vault-status-badge ${vaultStats.halted ? "halted" : "live"}`}>
-                {vaultStats.halted ? "HALTED" : "LIVE"}
-              </span>
-            )}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
+        {/* ── Left column ── */}
+        <div className="min-w-0">
+
+          {/* Hero */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-1">
+              <h1 className="text-3xl font-bold text-white">PolyAlpha Vault</h1>
+              {vaultStats && !vaultStats.notDeployed && !vaultStats.error && !vaultStats.halted && (
+                <span className="flex items-center gap-2">
+                  <span className="flex h-3 w-3 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-success"></span>
+                  </span>
+                  <span className="text-xs font-mono text-success uppercase tracking-widest">LIVE</span>
+                </span>
+              )}
+              {vaultStats?.halted && (
+                <span className="text-xs font-mono text-red-400 border border-red-500/40 px-2 py-0.5 rounded uppercase tracking-widest">
+                  HALTED
+                </span>
+              )}
+            </div>
+            <p className="text-gray-400">Agent-Native Prediction Market Arbitrage</p>
           </div>
 
-          {/* Stats grid */}
+          {/* DataCards — Prompt 2 Task 2 */}
           {vaultStats && !vaultStats.notDeployed && !vaultStats.error && (
-            <div className="stats-grid">
-              <StatCard label="Total Value Locked" value={`$${vaultStats.tvl.toFixed(2)}`} unit="USDC" />
-              <StatCard label="Total Shares"        value={vaultStats.shares.toFixed(4)}    unit="paUSDC" />
-              <StatCard label="Peak TVL"            value={`$${vaultStats.peakTvl.toFixed(2)}`} unit="USDC" />
-              <StatCard
-                label="Drawdown from Peak"
-                value={`${vaultStats.drawdown.toFixed(1)}%`}
-                unit=""
-                alert={vaultStats.drawdown > 15}
-              />
-              <StatCard
-                label="Circuit Breaker"
-                value={vaultStats.halted ? "HALTED" : "Active"}
-                unit=""
-                alert={vaultStats.halted}
-              />
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+              <DataCard label="Total Value Locked"  value={`$${vaultStats.tvl.toFixed(2)}`}      unit="USDC"   />
+              <DataCard label="Total Shares"         value={vaultStats.shares.toFixed(4)}          unit="paUSDC" />
+              <DataCard label="Peak TVL"             value={`$${vaultStats.peakTvl.toFixed(2)}`}  unit="USDC"   />
+              <DataCard label="Drawdown from Peak"   value={`${vaultStats.drawdown.toFixed(1)}%`} alert={vaultStats.drawdown > 15} />
+              <DataCard label="Circuit Breaker"      value={vaultStats.halted ? "HALTED" : "Active"} alert={vaultStats.halted} />
             </div>
           )}
 
           {vaultStats?.error && (
-            <div className="notice error">
+            <div className="bg-red-950 border border-red-500/30 text-red-300 p-4 rounded-lg text-sm mb-4">
               RPC error — vault stats unavailable: {vaultStats.error}
             </div>
           )}
 
-          {/* Wallet connect */}
-          <div className="section">
-            <h3>Your Wallet</h3>
+          {/* Wallet */}
+          <div className="mb-6">
+            <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-3">Your Wallet</h3>
             {wallet ? (
-              <div className="wallet-connected">
-                <span className="wallet-dot" />
+              <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-success shadow-[0_0_6px_#00E676]" />
                 <a
-                  className="address"
+                  className="font-mono text-sm text-accent hover:underline"
                   href={`${POLYGONSCAN_URL}/address/${wallet}`}
                   target="_blank"
                   rel="noreferrer"
                 >
                   {wallet.slice(0, 6)}...{wallet.slice(-4)}
                 </a>
-                <span className="chain-badge">{CHAIN_NAME}</span>
+                <span className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded font-mono">{CHAIN_NAME}</span>
               </div>
             ) : (
-              <button className="btn-primary connect-btn" onClick={connectWallet}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6 }}>
-                  <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+              <button
+                className="flex items-center gap-2 bg-accent hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                onClick={connectWallet}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="7" width="20" height="14" rx="2"/>
+                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
                 </svg>
                 Connect MetaMask
               </button>
@@ -243,94 +250,98 @@ export default function VaultPage() {
 
           {/* Deposit / Withdraw */}
           {wallet && (
-            <div className="section">
-              <h3>Deposit / Withdraw USDC</h3>
-              <div className="form-row">
+            <div className="mb-6">
+              <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-3">Deposit / Withdraw USDC</h3>
+              <div className="flex gap-2 mb-2">
                 <input
                   type="number"
                   placeholder="Amount (USDC)"
                   value={depositAmt}
                   onChange={(e) => setDepositAmt(e.target.value)}
-                  className="input"
+                  className="bg-surface border border-gray-700 text-gray-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-accent w-44"
                 />
-                <button className="btn-primary" onClick={handleDeposit} disabled={loading}>
+                <button
+                  className="bg-accent hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                  onClick={handleDeposit}
+                  disabled={loading}
+                >
                   {loading ? "Processing..." : "Deposit"}
                 </button>
               </div>
-              <div className="form-row" style={{ marginTop: "0.5rem" }}>
+              <div className="flex gap-2">
                 <input
                   type="number"
                   placeholder="Amount (USDC)"
                   value={withdrawAmt}
                   onChange={(e) => setWithdrawAmt(e.target.value)}
-                  className="input"
+                  className="bg-surface border border-gray-700 text-gray-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-accent w-44"
                 />
-                <button className="btn-outline" onClick={handleWithdraw} disabled={loading}>
+                <button
+                  className="border border-accent text-accent hover:bg-accent/10 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                  onClick={handleWithdraw}
+                  disabled={loading}
+                >
                   {loading ? "Processing..." : "Withdraw"}
                 </button>
               </div>
 
               {txStatus && (
-                <div className={`notice ${
+                <div className={`mt-3 p-3 rounded-lg text-sm ${
                   txStatus.startsWith("Deposited") || txStatus.startsWith("Withdrawn")
-                    ? "success"
+                    ? "bg-green-950 border border-success/30 text-success"
                     : txStatus.startsWith("Error")
-                    ? "error"
-                    : "info"
+                    ? "bg-red-950 border border-red-500/30 text-red-300"
+                    : "bg-surface border border-gray-700 text-gray-300"
                 }`}>
                   {txStatus}
                   {txStatus.includes("Tx:") && (
-                    <>
-                      {" "}
-                      <a
-                        href={`${POLYGONSCAN_URL}/tx/${txStatus.split("Tx: ")[1]}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        View on Explorer
-                      </a>
-                    </>
+                    <a
+                      href={`${POLYGONSCAN_URL}/tx/${txStatus.split("Tx: ")[1]}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ml-2 text-accent hover:underline"
+                    >
+                      View on Explorer
+                    </a>
                   )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Risk parameters */}
-          <div className="section">
-            <h3>Risk Parameters</h3>
-            <table className="params-table">
-              <tbody>
-                <tr><td>Performance Fee</td>   <td>20% of profits</td></tr>
-                <tr><td>Management Fee</td>    <td>0.5% annual</td></tr>
-                <tr><td>Max Position Size</td> <td>5% of TVL per trade</td></tr>
-                <tr><td>Max Total Exposure</td><td>40% of TVL</td></tr>
-                <tr><td>Circuit Breaker</td>   <td>Auto-halt at 20% drawdown from peak</td></tr>
-                <tr><td>Kelly Fraction</td>    <td>Quarter-Kelly (25% of full Kelly)</td></tr>
-              </tbody>
-            </table>
-            <p className="caption">
-              Hardcoded in <code>PolyAlphaVault.sol</code>.
-              Phase 2: DAO governance controls risk parameters via 48h timelock.
+          {/* Risk Parameters Table — Prompt 2 Task 3 */}
+          <div>
+            <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-3">Risk Parameters</h3>
+            <div className="bg-surface border border-gray-800 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody>
+                  {[
+                    ["Performance Fee",    "20% of profits"],
+                    ["Management Fee",     "0.5% annual"],
+                    ["Max Position Size",  "5% of TVL per trade"],
+                    ["Max Total Exposure", "40% of TVL"],
+                    ["Circuit Breaker",    "Auto-halt at 20% drawdown from peak"],
+                    ["Kelly Fraction",     "Quarter-Kelly (25% of full Kelly)"],
+                  ].map(([param, val]) => (
+                    <tr key={param} className="border-b border-gray-800 last:border-0">
+                      <td className="px-4 py-3 text-sm text-gray-400">{param}</td>
+                      <td className="px-4 py-3 text-sm font-mono text-white">{val}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-gray-600 font-mono mt-2">
+              Hardcoded in <code>PolyAlphaVault.sol</code>. Phase 2: DAO governance via 48h timelock.
             </p>
           </div>
         </div>
 
-        {/* ── Right: social feed ── */}
-        <div className="vault-sidebar">
+        {/* ── Right column: signal radar ── */}
+        <div className="lg:sticky lg:top-20">
           <SocialFeed />
         </div>
       </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, unit, alert }) {
-  return (
-    <div className={`stat-card ${alert ? "stat-alert" : ""}`}>
-      <div className="stat-label">{label}</div>
-      <div className="stat-value">{value}</div>
-      {unit && <div className="stat-unit">{unit}</div>}
     </div>
   );
 }
