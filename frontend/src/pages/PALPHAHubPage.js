@@ -173,17 +173,57 @@ const MOCK_PROPOSALS = [
 ];
 
 function GovernanceSection({ provider, signer, address }) {
-  const [proposals, setProposals] = useState(MOCK_PROPOSALS);
-  const [liveCount, setLiveCount] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ description: "", target: "", callData: "0x" });
-  const [status, setStatus] = useState("");
+  const [proposals, setProposals]         = useState(MOCK_PROPOSALS);
+  const [usingCachedData, setUsingCached] = useState(true);
+  const [loading, setLoading]             = useState(false);
+  const [liveCount, setLiveCount]         = useState(null);
+  const [showForm, setShowForm]           = useState(false);
+  const [form, setForm]                   = useState({ description: "", target: "", callData: "0x" });
+  const [status, setStatus]               = useState("");
 
-  useEffect(() => {
+  const fetchProposals = useCallback(async () => {
     if (!provider) return;
-    const dao = new ethers.Contract(DAO_ADDRESS, DAO_ABI, provider);
-    dao.proposalCount().then((n) => setLiveCount(Number(n))).catch(() => {});
+    setLoading(true);
+    try {
+      const dao   = new ethers.Contract(DAO_ADDRESS, DAO_ABI, provider);
+      const count = await dao.proposalCount();
+      const n     = Number(count);
+      setLiveCount(n);
+
+      if (n === 0) {
+        setProposals(MOCK_PROPOSALS);
+        setUsingCached(true);
+        return;
+      }
+
+      const fetched = await Promise.all(
+        Array.from({ length: n }, (_, i) =>
+          dao.getProposal(i).then((p) => ({
+            id:             i,
+            proposer:       p[0],
+            description:    p[1],
+            targetContract: p[2],
+            createdAt:      p[3],
+            votingDeadline: p[4],
+            forVotes:       p[5],
+            againstVotes:   p[6],
+            executed:       p[7],
+            canceled:       p[8],
+          }))
+        )
+      );
+      setProposals(fetched);
+      setUsingCached(false);
+    } catch (e) {
+      console.error("fetchProposals failed:", e);
+      setProposals(MOCK_PROPOSALS);
+      setUsingCached(true);
+    } finally {
+      setLoading(false);
+    }
   }, [provider]);
+
+  useEffect(() => { fetchProposals(); }, [fetchProposals]);
 
   async function handleCreate() {
     if (!signer) return;
@@ -221,6 +261,19 @@ function GovernanceSection({ provider, signer, address }) {
           {liveCount !== null && (
             <span className="hub-badge">{liveCount} on-chain proposal{liveCount !== 1 ? "s" : ""}</span>
           )}
+          {usingCachedData && (
+            <span className="hub-badge" style={{ background: "#f97316", color: "#000" }}>
+              ⚠ Showing cached data
+            </span>
+          )}
+          <button
+            className="hub-btn"
+            onClick={fetchProposals}
+            disabled={loading || !provider}
+            title="Refresh proposals from chain"
+          >
+            {loading ? "Loading..." : "Refresh"}
+          </button>
           {signer && (
             <button className="hub-btn primary" onClick={() => setShowForm(!showForm)}>
               {showForm ? "Cancel" : "+ New Proposal"}

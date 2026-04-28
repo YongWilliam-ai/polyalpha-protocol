@@ -114,6 +114,35 @@ def _write_summary(date_str: str, summary: dict) -> None:
 
 # -- Main run -----------------------------------------------------------------
 
+def _startup_health_check() -> dict:
+    """
+    Ping all data APIs before running collection.
+    Returns {"api_name": "live"|"degraded"} for each endpoint.
+    Logs a summary line — does NOT abort if an API is degraded.
+    """
+    checks = {
+        "Hyperliquid": ("POST", "https://api.hyperliquid.xyz/info", {"type": "meta"}),
+        "Binance":     ("GET",  "https://fapi.binance.com/fapi/v1/ping", None),
+        "OKX":         ("GET",  "https://www.okx.com/api/v5/public/time", None),
+        "Gamma_API":   ("GET",  "https://gamma-api.polymarket.com/markets?limit=1", None),
+    }
+    results = {}
+    for name, (method, url, body) in checks.items():
+        try:
+            if method == "POST":
+                resp = requests.post(url, json=body, timeout=5)
+            else:
+                resp = requests.get(url, timeout=5)
+            results[name] = "live" if resp.status_code < 400 else "degraded"
+        except Exception:
+            results[name] = "degraded"
+
+    live    = [k for k, v in results.items() if v == "live"]
+    degraded = [k for k, v in results.items() if v == "degraded"]
+    log.info(f"Health check: {len(live)} live [{', '.join(live)}] | {len(degraded)} degraded [{', '.join(degraded)}]")
+    return results
+
+
 def run(dry_run: bool = False) -> dict:
     """
     Execute one daily data collection run.
@@ -124,6 +153,9 @@ def run(dry_run: bool = False) -> dict:
     ts        = now.isoformat()
 
     log.info(f"=== PolyAlpha Daily Runner [{date_str}] ===")
+
+    # Startup health check — report API status before collecting data
+    _startup_health_check()
 
     # GPU availability check (non-fatal -- scanner runs fine on CPU)
     try:

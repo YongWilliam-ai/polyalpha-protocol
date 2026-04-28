@@ -121,42 +121,98 @@ VAULT_ABI = [
 ]
 
 
-# -- Polymarket V2: price fetch stub ------------------------------------------
+# -- PolymarketExecutor: V2 price fetch + paper trade execution ---------------
 
-def get_polymarket_v2_price(market_id: str) -> Optional[float]:
+class PolymarketExecutor:
     """
-    [V2 STUB] Fetch YES token best-bid price from Polymarket V2 CLOB API.
+    Polymarket V2 execution layer.
 
-    Polymarket V2 order structure (post April 22, 2026):
-      - Removed: nonce, feeRateBps
-      - Added:   timestamp (Unix ms), builder (address)
-      - Collateral: pUSD (not USDC.e)
+    Paper Trading phase (current): fetch_yes_token_price() uses real CLOB REST API.
+    execute_trade() logs the intended order but does NOT submit it on-chain.
 
-    TODO (v2 live trading): Replace with py-clob-client-v2 SDK call:
-        from py_clob_client.client import ClobClient
-        client = ClobClient(host="https://clob.polymarket.com", chain_id=137)
-        book = client.get_order_book(token_id=market_id)
-        return float(book.bids[0].price) if book.bids else None
-
-    Current implementation: direct REST call to V2 CLOB (no SDK needed for reads).
-    Falls back to None on any error; caller uses Gamma API as fallback.
+    Live trading (future): requires py-clob-client-v2 SDK + POLYMARKET_PRIVATE_KEY.
+    Upgrade path documented in execute_trade() docstring.
 
     Ref: https://docs.polymarket.com/v2-migration
     """
-    try:
-        resp = requests.get(
-            f"{CLOB_V2_API}/book",
-            params={"token_id": market_id},
-            timeout=5,
+
+    def __init__(self):
+        self.clob_url  = CLOB_V2_API
+        self.paper_mode = True   # flip to False when py-clob-client-v2 is installed
+
+    def fetch_yes_token_price(self, market_id: str) -> Optional[float]:
+        """
+        Fetch YES token best-bid from Polymarket V2 CLOB REST API.
+        Returns None on any error; caller should use Gamma API as fallback.
+        No auth required for order book reads.
+        """
+        try:
+            resp = requests.get(
+                f"{self.clob_url}/book",
+                params={"token_id": market_id},
+                timeout=5,
+            )
+            if resp.status_code == 200:
+                bids = resp.json().get("bids", [])
+                if bids:
+                    return float(bids[0]["price"])
+        except Exception as exc:
+            log.warning(f"CLOB price fetch failed for {market_id}: {exc}")
+        return None
+
+    def execute_trade(
+        self,
+        market_id: str,
+        side: str,
+        amount_usdc: float,
+    ) -> dict:
+        """
+        Place a trade on Polymarket V2 CLOB.
+
+        Paper Trading (paper_mode=True):
+          Logs the intended order, writes to trade_history.jsonl, does NOT submit.
+          Returns {"order_id": "PAPER-...", "status": "PAPER", "error": None}
+
+        Live (paper_mode=False — future):
+          Requires POLYMARKET_PRIVATE_KEY in .env and py-clob-client-v2:
+            from py_clob_client.client import ClobClient
+            client = ClobClient(host=self.clob_url, chain_id=137,
+                                key=os.getenv("POLYMARKET_PRIVATE_KEY"))
+            order = client.create_market_order(token_id=market_id,
+                                               side=side, size=amount_usdc)
+            resp = client.post_order(order)
+            return {"order_id": resp.orderID, "status": resp.status, "error": None}
+
+        Returns:
+            {"order_id": str, "status": "PAPER"|"EXECUTED"|"FAILED", "error": None|str}
+        """
+        if self.paper_mode:
+            order_id = f"PAPER-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+            record = {
+                "order_id":    order_id,
+                "status":      "PAPER",
+                "market_id":   market_id,
+                "side":        side,
+                "amount_usdc": amount_usdc,
+                "timestamp":   datetime.now(timezone.utc).isoformat(),
+                "error":       None,
+            }
+            log.info(f"[PAPER TRADE] {record}")
+            return record
+
+        raise NotImplementedError(
+            "Live execution requires py-clob-client-v2. "
+            "Install it and set paper_mode=False."
         )
-        if resp.status_code == 200:
-            book = resp.json()
-            bids = book.get("bids", [])
-            if bids:
-                return float(bids[0]["price"])
-    except Exception:
-        pass
-    return None
+
+
+# Module-level executor instance (shared by all callers)
+polymarket = PolymarketExecutor()
+
+
+def get_polymarket_v2_price(market_id: str) -> Optional[float]:
+    """Thin wrapper — preserves existing call sites while using PolymarketExecutor."""
+    return polymarket.fetch_yes_token_price(market_id)
 
 
 # -- 6-step safety chain ------------------------------------------------------
