@@ -47,15 +47,14 @@
 
 ---
 
-## 下一步行動清單：Open-Source Alpha Integration
+## 已完成清單：Phase 1 (Dry-Run Mode Strategies)
+- [x] 整合 19 個開源資源並生成 `OpenSource_Integration_Plan.md`
+- [x] 實作 `yes_no_arb_scanner` (YES+NO < $1.00 無風險套利)
+- [x] 實作 `correlation_arb_scanner` (邏輯矛盾套利)
+- [x] 實作 `get_macro_sentiment` (6551Team/daily-news 新聞情緒閘門)
 
-William 已收集 19 個關於 Polymarket 交易機器人與 Web3 工具的 GitHub/X 連結。
-目標是**不從零開始**，而是讓 Claude Code（已安裝 `web-access` 與 `read-github` 技能）讀取這些連結，提取：
-1. **Trading Strategies / Alpha**（可寫入 `agent.py` 的獲利邏輯）
-2. **Infrastructure / Tools**（可直接複製的 API Wrapper）
-3. **Dashboard / UI Inspiration**
-
-### Claude Code 即將執行的任務
-- 讀取 19 個連結並過濾雜訊。
-- 撰寫 `OpenSource_Integration_Plan.md`。
-- 將分析結果存入持久化記憶體（`claude-mem`）。
+## 下一步行動清單：Phase 2 (Demo Preparation)
+William 的專案已 100% 完成代碼開發，現在進入期末報告與 Demo 準備階段：
+1. 撰寫 **PolyAlpha Startup Pitch Deck**（給教授看的投影片大綱或完整簡報）
+2. 撰寫 **Technical Architecture Document**（詳細說明 AI Agent、Smart Contracts 和 Execution Engine 的協同架構）
+3. 製作系統架構圖（展示 paper_mode 安全測試策略與 Live 模式切換流程）
