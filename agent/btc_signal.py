@@ -29,6 +29,7 @@ from typing import Optional
 BINANCE_KLINE_URL = "https://api.binance.com/api/v3/klines"
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/price"
 GAMMA_API         = "https://gamma-api.polymarket.com"
+CLOB_HOST         = "https://clob.polymarket.com"
 
 # ── Signal parameters ────────────────────────────────────────────────────────
 MOMENTUM_THRESHOLD   = 0.003   # BTC must move >0.3% in 7 minutes
@@ -95,20 +96,26 @@ def get_polymarket_v2_odds(market_id: str) -> Optional[float]:
     """
     Fetch YES token odds from Polymarket V2.
 
-    # Inspired by runesleo/polymarket-toolkit (V2 compatible odds fetching)
-    Primary:  polymarket-toolkit SDK (pip install polymarket-toolkit)
-    Fallback: Gamma API REST call -- no SDK required, always works.
+    Primary:  py-clob-client midpoint via CLOB REST API (no auth required for reads).
+    Fallback: Gamma API REST call (always works, slightly stale vs live orderbook).
 
+    market_id is the YES-outcome token ID (condition_id + 0 index) from Gamma API.
     Returns YES probability (0-1) or None on failure.
     """
-    # Primary: polymarket-toolkit SDK
-    # TODO: once installed, replace stub with:
-    #   from polymarket_toolkit import PolymarketClient
-    #   client = PolymarketClient()
-    #   market = client.get_market(market_id)
-    #   return market.yes_price
-    #
-    # Until then, fall through to Gamma API below.
+    # Primary: CLOB midpoint — live orderbook price, no auth required for reads
+    try:
+        resp = requests.get(
+            f"{CLOB_HOST}/midpoint",
+            params={"token_id": market_id},
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            mid = data.get("mid")
+            if mid is not None:
+                return float(mid)
+    except Exception:
+        pass
 
     # Fallback: Gamma API REST call (V2-compatible for price reads)
     try:
