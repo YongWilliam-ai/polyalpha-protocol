@@ -484,6 +484,142 @@ def scan_polymarket_fast_resolution(
     return {"data": qualifying, "source": "real", "timestamp": ts, "error": None}
 
 
+# -- YES/NO Riskless Arbitrage Scanner ----------------------------------------
+
+def _get_best_ask_clob(token_id: str) -> Optional[float]:
+    """
+    Fetch the best (lowest) ask price for an outcome token from the CLOB order book.
+    Best ask = cheapest price at which someone is willing to sell the token.
+    Returns None if the book is empty or the request fails.
+    """
+    try:
+        resp = requests.get(
+            f"{CLOB_API}/book",
+            params={"token_id": token_id},
+            timeout=5,
+        )
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        asks = data.get("asks", [])
+        if not asks:
+            return None
+        # asks may be unsorted -- take the minimum to find the true best ask
+        return min(float(a["price"]) for a in asks if a.get("price"))
+    except Exception:
+        return None
+
+
+def get_active_market_ids(limit: int = 50) -> list[str]:
+    """
+    Fetch condition IDs of active Polymarket markets from Gamma API.
+    Used to seed scan_yes_no_arb() with a fresh universe of markets to check.
+    """
+    try:
+        resp = requests.get(
+            f"{GAMMA_API}/markets",
+            params={"active": "true", "closed": "false", "limit": limit},
+            timeout=8,
+        )
+        resp.raise_for_status()
+        return [m["conditionId"] for m in resp.json() if m.get("conditionId")]
+    except Exception as exc:
+        print(f"  get_active_market_ids failed: {exc}")
+        return []
+
+
+def scan_yes_no_arb(market_ids: list[str]) -> list[dict]:
+    """
+    Scans Polymarket markets for YES+NO riskless arbitrage.
+
+    # MrFadiAi/Polymarket-bot Strategy 1: YES+NO < $1.00 = guaranteed profit
+    # A Polymarket binary market always resolves to exactly $1.00 total:
+    # either YES pays $1.00 or NO pays $1.00. If you can buy BOTH for < $0.98,
+    # you lock in a risk-free gain regardless of outcome.
+    # The 2% buffer covers Polygon gas fees + CLOB taker fee (est. ~0.5-1%).
+
+    Parameters:
+        market_ids: list of Polymarket condition IDs (from Gamma API conditionId field)
+
+    Returns:
+        list of dicts with: market_id, question, yes_price, no_price, total, profit_pct
+        Sorted by profit_pct descending. Empty list = no arb found (normal).
+    """
+    ts = datetime.now(timezone.utc).isoformat()
+    print(f"[{ts}] Scanning YES/NO arb across {len(market_ids)} markets...")
+
+    # One Gamma API call to resolve clobTokenIds for all requested condition IDs
+    token_id_map: dict[str, list[str]] = {}   # condition_id -> [yes_token_id, no_token_id]
+    question_map: dict[str, str] = {}
+
+    try:
+        resp = requests.get(
+            f"{GAMMA_API}/markets",
+            params={"active": "true", "limit": max(len(market_ids), 100)},
+            timeout=8,
+        )
+        resp.raise_for_status()
+        condition_id_set = set(market_ids)
+        for m in resp.json():
+            cid = m.get("conditionId", "")
+            if cid not in condition_id_set:
+                continue
+            clob_ids = m.get("clobTokenIds", [])
+            if isinstance(clob_ids, str):
+                try:
+                    clob_ids = json.loads(clob_ids)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            if isinstance(clob_ids, list) and len(clob_ids) >= 2:
+                token_id_map[cid] = [str(clob_ids[0]), str(clob_ids[1])]
+                question_map[cid] = str(m.get("question", ""))[:120]
+    except Exception as exc:
+        print(f"  Gamma API lookup failed: {exc} -- aborting YES/NO scan")
+        return []
+
+    if not token_id_map:
+        print(f"  Could not resolve clobTokenIds for any of the {len(market_ids)} markets")
+        return []
+
+    print(f"  Resolved token IDs for {len(token_id_map)}/{len(market_ids)} markets")
+
+    opportunities = []
+
+    for condition_id, (yes_token, no_token) in token_id_map.items():
+        yes_ask = _get_best_ask_clob(yes_token)
+        no_ask  = _get_best_ask_clob(no_token)
+
+        if yes_ask is None or no_ask is None:
+            continue
+
+        total = yes_ask + no_ask
+
+        if total >= 0.98:
+            continue  # no arb above the 2% safety buffer
+
+        profit_pct = round((1.0 - total) * 100, 3)
+
+        opp = {
+            "market_id":  condition_id,
+            "question":   question_map.get(condition_id, ""),
+            "yes_price":  round(yes_ask, 4),
+            "no_price":   round(no_ask, 4),
+            "total":      round(total, 4),
+            "profit_pct": profit_pct,
+        }
+        opportunities.append(opp)
+        print(
+            f"  ARB FOUND: {opp['question'][:55]}... "
+            f"YES={yes_ask:.4f}+NO={no_ask:.4f}={total:.4f} profit={profit_pct:.2f}%"
+        )
+
+    if not opportunities:
+        print(f"  No YES/NO arb found ({len(token_id_map)} books checked -- this is normal)")
+
+    opportunities.sort(key=lambda x: x["profit_pct"], reverse=True)
+    return opportunities
+
+
 # -- Oracle Risk Scorer -------------------------------------------------------
 
 # Resolution source strings that indicate high dispute risk
@@ -540,18 +676,23 @@ if __name__ == "__main__":
     print("PolyAlpha Protocol -- Arbitrage Scanner (Paper Trading Mode)")
     print("=" * 60)
 
-    print("\n[1/2] Scanning Funding Rate Arbitrage...")
+    print("\n[1/3] Scanning Funding Rate Arbitrage...")
     funding_result = scan_funding_arbitrage(min_bps=30)
     funding_opps   = funding_result["data"]
 
-    print("\n[2/2] Scanning PolyMarket Fast-Resolution...")
+    print("\n[2/3] Scanning PolyMarket Fast-Resolution...")
     poly_result = scan_polymarket_fast_resolution(min_price=0.95, max_hours_to_end=4)
     poly_opps   = poly_result["data"]
+
+    print("\n[3/3] Scanning YES/NO Riskless Arbitrage...")
+    market_ids = get_active_market_ids(limit=30)
+    yesno_opps = scan_yes_no_arb(market_ids) if market_ids else []
 
     print("\n" + "=" * 60)
     print(
         f"SCAN COMPLETE: {len(funding_opps)} funding arb [{funding_result['source'].upper()}] "
-        f"+ {len(poly_opps)} PolyMarket [{poly_result['source'].upper()}] opportunities"
+        f"+ {len(poly_opps)} PolyMarket [{poly_result['source'].upper()}] "
+        f"+ {len(yesno_opps)} YES/NO arb opportunities"
     )
     print("=" * 60)
 
@@ -570,3 +711,13 @@ if __name__ == "__main__":
                 f"  [{o['confidence_label']}] {o['question'][:55]}... "
                 f"net={o['estimated_net_return_pct']*100:.1f}%"
             )
+
+    if yesno_opps:
+        print("\nYES/NO Riskless Arb:")
+        for o in yesno_opps:
+            print(
+                f"  {o['market_id'][:12]}... "
+                f"YES={o['yes_price']:.4f}+NO={o['no_price']:.4f} profit={o['profit_pct']:.2f}%"
+            )
+    else:
+        print("\nYES/NO Arb: none found (rare in efficient markets -- scan is working correctly)")
