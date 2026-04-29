@@ -46,6 +46,7 @@ from arb_scanner import (
     scan_funding_arbitrage,
     scan_polymarket_fast_resolution,
     scan_yes_no_arb,
+    scan_correlation_arb,
     get_active_market_ids,
     oracle_risk_score,
 )
@@ -70,7 +71,8 @@ TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 MIN_NET_RETURN_TO_ALERT  = 0.02    # 2% net return minimum for PM alert
 MIN_NET_BPS_TO_ALERT     = 50      # 50 bps minimum for funding arb alert
 MAX_ORACLE_RISK_TO_ALERT = 0.4     # skip PM markets with oracle risk >= 0.4
-MIN_YES_NO_PROFIT_PCT    = 0.5     # 0.5% minimum profit for YES/NO arb alert
+MIN_YES_NO_PROFIT_PCT       = 0.5   # 0.5% minimum profit for YES/NO arb alert
+MIN_CORRELATION_SPREAD_BPS  = 300  # 3% (300 bps) minimum spread for correlation alert
 
 
 # -- Telegram helper ----------------------------------------------------------
@@ -117,6 +119,18 @@ def _format_poly_alert(opp: dict, risk: float) -> str:
         f"Volume 24h: ${opp['volume_24h']:,.0f} | Ends: {end_time} UTC\n"
         f"Oracle risk: {risk:.2f} | Paper Trading -- DO NOT execute without manual check\n"
         f"#PolyAlpha #Strategy1"
+    )
+
+
+def _format_correlation_arb_alert(opp: dict) -> str:
+    return (
+        f"*PolyAlpha* -- Correlation Arb Alert [{opp['violation_id']}]\n"
+        f"SPECIFIC: `{opp['specific_question'][:70]}`  → {opp['specific_price']:.3f}\n"
+        f"BROAD:    `{opp['broad_question'][:70]}`  → {opp['broad_price']:.3f}\n"
+        f"Spread: *{opp['spread_bps']}bps* | {opp['logic']}\n"
+        f"Trade: BUY broad-category YES, note specific is overpriced\n"
+        f"Paper Trading -- multi-leg execution required (Phase 2)\n"
+        f"#PolyAlpha #CorrelationArb"
     )
 
 
@@ -181,7 +195,7 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
         log.info(f"\n-- Scan #{scan_count} @ {ts} --")
 
         # ── Strategy 1: PolyMarket near-settlement ────────────────────────────
-        log.info("[1/3] Scanning PolyMarket fast-resolution opportunities...")
+        log.info("[1/4] Scanning PolyMarket fast-resolution opportunities...")
         try:
             poly_result = scan_polymarket_fast_resolution(
                 min_price=0.95,
@@ -216,7 +230,7 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
             log.error(f"PolyMarket scan error: {exc}")
 
         # ── Strategy 2: Funding rate arb (informational) ─────────────────────
-        log.info("[2/3] Scanning funding rate arbitrage...")
+        log.info("[2/4] Scanning funding rate arbitrage...")
         try:
             funding_result = scan_funding_arbitrage(min_bps=30)
             funding_opps = funding_result["data"]
@@ -240,7 +254,7 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
             log.error(f"Funding arb scan error: {exc}")
 
         # ── Strategy 3: YES/NO riskless arb ──────────────────────────────────
-        log.info("[3/3] Scanning YES/NO riskless arbitrage...")
+        log.info("[3/4] Scanning YES/NO riskless arbitrage...")
         try:
             market_ids = get_active_market_ids(limit=50)
             yesno_opps = scan_yes_no_arb(market_ids) if market_ids else []
@@ -259,6 +273,26 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
             )
         except Exception as exc:
             log.error(f"YES/NO arb scan error: {exc}")
+
+        # ── Strategy 4: Logical correlation arb ──────────────────────────────
+        log.info("[4/4] Scanning logical correlation arbitrage...")
+        try:
+            corr_opps = scan_correlation_arb()
+            _log_scan("CORRELATION_ARB", corr_opps)
+
+            alerts_sent = 0
+            for opp in corr_opps:
+                if opp["spread_bps"] < MIN_CORRELATION_SPREAD_BPS:
+                    continue
+                alert = _format_correlation_arb_alert(opp)
+                send_telegram(alert, dry_run=dry_run)
+                alerts_sent += 1
+
+            log.info(
+                f"  {len(corr_opps)} correlation violations found, {alerts_sent} alerts sent"
+            )
+        except Exception as exc:
+            log.error(f"Correlation arb scan error: {exc}")
 
         # ── Summary ──────────────────────────────────────────────────────────
         log.info(f"Scan #{scan_count} complete. Next scan in {interval_min} min.")
@@ -324,5 +358,16 @@ if __name__ == "__main__":
             )
         if not yesno:
             print("  None found (genuine YES/NO arb is rare -- scanner is working correctly)")
+
+        print("\nCorrelation arb scan...")
+        corr = scan_correlation_arb()
+        print(f"Correlation violations: {len(corr)}")
+        for o in corr:
+            print(
+                f"  [{o['violation_id']}] specific={o['specific_price']:.3f} > "
+                f"broad={o['broad_price']:.3f} spread={o['spread_bps']}bps"
+            )
+        if not corr:
+            print("  None found (markets are internally consistent -- scanner is working correctly)")
     else:
         run_scanner(interval_min=args.interval, dry_run=args.dry_run)

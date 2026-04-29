@@ -620,6 +620,172 @@ def scan_yes_no_arb(market_ids: list[str]) -> list[dict]:
     return opportunities
 
 
+# -- Logical Correlation Arbitrage Scanner ------------------------------------
+
+# Minimum price spread (absolute) to flag a logical violation as exploitable.
+# 3% threshold exceeds estimated transaction cost (~1%), leaving real net edge.
+CORRELATION_VIOLATION_THRESHOLD = 0.03
+
+# Each rule defines a pair of markets that must satisfy P(specific) <= P(broad).
+# Violation: price(specific) > price(broad) + THRESHOLD.
+# specific_keywords / broad_keywords: ALL must appear in the market question (case-insensitive).
+KNOWN_CORRELATIONS: list[dict] = [
+    {
+        "id":                "trump_vs_republican_president",
+        "specific_keywords": ["trump", "win"],
+        "broad_keywords":    ["republican", "win"],
+        "specific_label":    "Trump wins presidential election",
+        "broad_label":       "Republican wins presidential election",
+        "logic":             "Trump IS a Republican -- P(Trump wins) <= P(Republican wins)",
+    },
+    {
+        "id":                "btc_100k_vs_80k",
+        "specific_keywords": ["bitcoin", "100,000"],
+        "broad_keywords":    ["bitcoin", "80,000"],
+        "specific_label":    "BTC above $100k",
+        "broad_label":       "BTC above $80k",
+        "logic":             "P(BTC>$100k) <= P(BTC>$80k) -- stricter threshold implies looser",
+    },
+    {
+        "id":                "eth_5k_vs_3k",
+        "specific_keywords": ["ethereum", "5,000"],
+        "broad_keywords":    ["ethereum", "3,000"],
+        "specific_label":    "ETH above $5k",
+        "broad_label":       "ETH above $3k",
+        "logic":             "P(ETH>$5k) <= P(ETH>$3k) -- stricter threshold implies looser",
+    },
+    {
+        "id":                "chiefs_vs_afc_superbowl",
+        "specific_keywords": ["chiefs", "super bowl"],
+        "broad_keywords":    ["afc", "super bowl"],
+        "specific_label":    "Kansas City Chiefs win Super Bowl",
+        "broad_label":       "AFC team wins Super Bowl",
+        "logic":             "Chiefs ARE an AFC team -- P(Chiefs win) <= P(AFC team wins)",
+    },
+    {
+        "id":                "btc_200k_vs_150k",
+        "specific_keywords": ["bitcoin", "200,000"],
+        "broad_keywords":    ["bitcoin", "150,000"],
+        "specific_label":    "BTC above $200k",
+        "broad_label":       "BTC above $150k",
+        "logic":             "P(BTC>$200k) <= P(BTC>$150k)",
+    },
+]
+
+
+def _find_matching_market(markets: list[dict], keywords: list[str]) -> Optional[dict]:
+    """Return first market whose question contains ALL keywords (case-insensitive)."""
+    kw_lower = [k.lower() for k in keywords]
+    for m in markets:
+        question = m.get("question", "").lower()
+        if all(kw in question for kw in kw_lower):
+            return m
+    return None
+
+
+def _extract_yes_price(market: dict) -> Optional[float]:
+    """Extract YES (outcome 0) probability from a Gamma API market object."""
+    try:
+        prices = market.get("outcomePrices", [])
+        if prices:
+            return float(prices[0])
+    except (ValueError, TypeError, IndexError):
+        pass
+    return None
+
+
+def scan_correlation_arb() -> list[dict]:
+    """
+    Scans active Polymarket markets for logical correlation violations.
+
+    # OpenSource_Integration_Plan.md Strategy A3 (win rate 70-80%)
+    # Principle: if Outcome A is a strict subset of Outcome B,
+    # P(A) <= P(B) must always hold. When P(A) > P(B) + threshold,
+    # the crowd has violated a basic probability axiom.
+    #
+    # Trade: buy underpriced broad-category YES, short overpriced specific
+    # outcome. Multi-leg execution within 500ms window (Phase 2).
+    # Phase 1: detection and logging only (paper trading).
+
+    Returns:
+        list of dicts: violation_id, specific_market_id, broad_market_id,
+                       specific_question, broad_question, specific_price,
+                       broad_price, spread, spread_bps, logic
+        Sorted by spread_bps descending. Empty list = no violations (normal).
+    """
+    ts = datetime.now(timezone.utc).isoformat()
+    print(
+        f"[{ts}] Scanning correlation arb across {len(KNOWN_CORRELATIONS)} known rules..."
+    )
+
+    try:
+        resp = requests.get(
+            f"{GAMMA_API}/markets",
+            params={"active": "true", "limit": 100},
+            timeout=8,
+        )
+        resp.raise_for_status()
+        markets = resp.json()
+        print(f"  Fetched {len(markets)} active markets from Gamma API")
+    except Exception as exc:
+        print(f"  Gamma API unavailable: {exc} -- aborting correlation scan")
+        return []
+
+    violations = []
+
+    for rule in KNOWN_CORRELATIONS:
+        specific_mkt = _find_matching_market(markets, rule["specific_keywords"])
+        broad_mkt    = _find_matching_market(markets, rule["broad_keywords"])
+
+        if specific_mkt is None or broad_mkt is None:
+            continue  # these markets don't exist on Polymarket right now
+
+        specific_id = specific_mkt.get("conditionId", "")
+        broad_id    = broad_mkt.get("conditionId", "")
+
+        if specific_id == broad_id:
+            continue  # same market matched both sides -- skip
+
+        specific_price = _extract_yes_price(specific_mkt)
+        broad_price    = _extract_yes_price(broad_mkt)
+
+        if specific_price is None or broad_price is None:
+            continue
+
+        spread     = specific_price - broad_price   # positive = violation
+        spread_bps = int(spread * 10_000)
+
+        if spread <= CORRELATION_VIOLATION_THRESHOLD:
+            continue  # within normal pricing bounds
+
+        violation = {
+            "violation_id":       rule["id"],
+            "specific_market_id": specific_id,
+            "broad_market_id":    broad_id,
+            "specific_question":  specific_mkt.get("question", "")[:100],
+            "broad_question":     broad_mkt.get("question", "")[:100],
+            "specific_price":     round(specific_price, 4),
+            "broad_price":        round(broad_price, 4),
+            "spread":             round(spread, 4),
+            "spread_bps":         spread_bps,
+            "logic":              rule["logic"],
+        }
+        violations.append(violation)
+        print(
+            f"  VIOLATION [{rule['id']}]: specific={specific_price:.3f} > "
+            f"broad={broad_price:.3f} spread={spread_bps}bps"
+        )
+
+    if not violations:
+        print(
+            f"  No correlation violations found "
+            f"({len(KNOWN_CORRELATIONS)} rules x {len(markets)} markets -- this is normal)"
+        )
+
+    violations.sort(key=lambda x: x["spread_bps"], reverse=True)
+    return violations
+
+
 # -- Oracle Risk Scorer -------------------------------------------------------
 
 # Resolution source strings that indicate high dispute risk
@@ -676,23 +842,27 @@ if __name__ == "__main__":
     print("PolyAlpha Protocol -- Arbitrage Scanner (Paper Trading Mode)")
     print("=" * 60)
 
-    print("\n[1/3] Scanning Funding Rate Arbitrage...")
+    print("\n[1/4] Scanning Funding Rate Arbitrage...")
     funding_result = scan_funding_arbitrage(min_bps=30)
     funding_opps   = funding_result["data"]
 
-    print("\n[2/3] Scanning PolyMarket Fast-Resolution...")
+    print("\n[2/4] Scanning PolyMarket Fast-Resolution...")
     poly_result = scan_polymarket_fast_resolution(min_price=0.95, max_hours_to_end=4)
     poly_opps   = poly_result["data"]
 
-    print("\n[3/3] Scanning YES/NO Riskless Arbitrage...")
+    print("\n[3/4] Scanning YES/NO Riskless Arbitrage...")
     market_ids = get_active_market_ids(limit=30)
     yesno_opps = scan_yes_no_arb(market_ids) if market_ids else []
+
+    print("\n[4/4] Scanning Logical Correlation Arbitrage...")
+    corr_opps = scan_correlation_arb()
 
     print("\n" + "=" * 60)
     print(
         f"SCAN COMPLETE: {len(funding_opps)} funding arb [{funding_result['source'].upper()}] "
         f"+ {len(poly_opps)} PolyMarket [{poly_result['source'].upper()}] "
-        f"+ {len(yesno_opps)} YES/NO arb opportunities"
+        f"+ {len(yesno_opps)} YES/NO arb "
+        f"+ {len(corr_opps)} correlation violations"
     )
     print("=" * 60)
 
@@ -721,3 +891,13 @@ if __name__ == "__main__":
             )
     else:
         print("\nYES/NO Arb: none found (rare in efficient markets -- scan is working correctly)")
+
+    if corr_opps:
+        print("\nCorrelation Violations:")
+        for o in corr_opps:
+            print(
+                f"  [{o['violation_id']}] specific={o['specific_price']:.3f} > "
+                f"broad={o['broad_price']:.3f} spread={o['spread_bps']}bps | {o['logic']}"
+            )
+    else:
+        print("\nCorrelation Arb: none found (this is normal -- markets are usually internally consistent)")
