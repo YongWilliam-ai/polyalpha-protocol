@@ -30,6 +30,10 @@ BINANCE_KLINE_URL = "https://api.binance.com/api/v3/klines"
 BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/price"
 GAMMA_API         = "https://gamma-api.polymarket.com"
 CLOB_HOST         = "https://clob.polymarket.com"
+SENTIMENT_API_URL = "https://ai.6551.io/open/free_hot"   # 6551Team/daily-news MCP source
+
+# Sentiment gate: Kelly fraction multiplier applied to UP signals during BEARISH macro
+SENTIMENT_KELLY_REDUCTION = 0.5
 
 # ── Signal parameters ────────────────────────────────────────────────────────
 MOMENTUM_THRESHOLD   = 0.003   # BTC must move >0.3% in 7 minutes
@@ -131,6 +135,53 @@ def get_polymarket_v2_odds(market_id: str) -> Optional[float]:
     except Exception:
         pass
     return None
+
+
+# ── Macro sentiment gate ──────────────────────────────────────────────────────
+
+def get_macro_sentiment() -> str:
+    """
+    Returns current crypto macro sentiment: "BULLISH", "BEARISH", or "NEUTRAL".
+
+    # OpenSource_Integration_Plan.md Strategy B3 — 6551Team/daily-news MCP
+    # Source: https://ai.6551.io/open/free_hot (category=crypto)
+    # Each item has a `signal` field: "bullish" | "bearish" | absent.
+    # Decision rule: if bullish count > bearish + 2 → BULLISH
+    #                if bearish count > bullish + 2 → BEARISH
+    #                otherwise                      → NEUTRAL
+    # The +2 buffer prevents a single headline from swinging the gate.
+
+    Fail-safe: returns "NEUTRAL" on any network or parse failure so it
+    never blocks a valid signal due to an API outage.
+    """
+    try:
+        resp = requests.get(
+            SENTIMENT_API_URL,
+            params={"category": "crypto", "limit": 10},
+            timeout=5,
+        )
+        if resp.status_code != 200:
+            return "NEUTRAL"
+
+        payload = resp.json()
+        # Handle both list responses and wrapped {"data": [...]} shapes
+        if isinstance(payload, list):
+            items = payload
+        elif isinstance(payload, dict):
+            items = payload.get("data", payload.get("items", payload.get("list", [])))
+        else:
+            return "NEUTRAL"
+
+        bullish = sum(1 for i in items if str(i.get("signal", "")).lower() == "bullish")
+        bearish = sum(1 for i in items if str(i.get("signal", "")).lower() == "bearish")
+
+        if bullish > bearish + 2:
+            return "BULLISH"
+        if bearish > bullish + 2:
+            return "BEARISH"
+        return "NEUTRAL"
+    except Exception:
+        return "NEUTRAL"
 
 
 # ── BTC data fetching ─────────────────────────────────────────────────────────
@@ -412,6 +463,18 @@ def generate_signal(
     else:
         kelly_f = monte_carlo_kelly(ai_prob, relevant_price)
 
+    # Macro sentiment gate (OpenSource_Integration_Plan.md B3 -- 6551Team/daily-news)
+    # UP signals during BEARISH macro are likely momentum false positives.
+    # Reduce Kelly by 50% as a precaution rather than skipping the signal entirely.
+    if side == "UP":
+        sentiment = get_macro_sentiment()
+        if sentiment == "BEARISH":
+            kelly_f = kelly_f * SENTIMENT_KELLY_REDUCTION
+            print(
+                f"  [SENTIMENT GATE] Macro is BEARISH — UP signal Kelly reduced 50% "
+                f"-> {kelly_f * 100:.2f}% TVL"
+            )
+
     signal = BtcSignal(
         market_question = market_question,
         condition_id    = condition_id,
@@ -435,6 +498,12 @@ def generate_signal(
 if __name__ == "__main__":
     print("BTC Signal Engine V2.0 -- Manual Test")
     print("=" * 55)
+
+    # Test 0: Macro sentiment gate
+    print("\n[Test 0] Macro sentiment gate (live API call)")
+    sentiment = get_macro_sentiment()
+    print(f"  Current macro sentiment: {sentiment}")
+    print(f"  (NEUTRAL = API unavailable or balanced -- this is fine)")
 
     # Test 1: Valid signal (0.4% BTC move, market at 55% -> divergence 0.12, within 15% cap)
     print("\n[Test 1] Valid signal: BTC +0.4%, market 55%")
