@@ -502,7 +502,24 @@ This incorporates all professor feedback, the Lecture 8 tokenomics framework, an
 
 ***
 
-## PART 10: REVISED BUILD PLAN (Weeks 5–12)
+## PART 10: REVISED BUILD PLAN (Weeks 5–12) & POST-MVP QLIB INTEGRATION
+
+### Phase 2: Qlib Research Engine Integration (Post-Week 12)
+After the MVP is completed and presented, the system will upgrade its AI layer from simple rule-based thresholds to a full machine-learning pipeline using **Microsoft Qlib**.
+
+**Why Qlib?**
+Qlib provides a robust, production-grade backtesting and factor-mining framework. It will solve the overfitting risks identified by Prof. Lei by allowing rigorous out-of-sample validation on the Becker 400M dataset.
+
+**The Hybrid Architecture:**
+1. **Offline Research (Qlib)**: Ingests historical Polymarket data, trains LSTM/LightGBM models, and mines alpha factors indicating binary mispricing.
+2. **Live Execution (Python Agent)**: Reads the static model weights/rules exported by Qlib and applies them to live Polymarket API data to generate signals.
+3. **On-Chain Settlement (Vault)**: Unchanged; continues to log decisions and manage funds.
+
+*(For full architectural justification, see `Qlib_Evaluation_Report_PolyAlpha.md` in the project shared folder).*
+
+***
+
+## PART 10.1: REVISED BUILD PLAN (Weeks 5–12)
 
 | Week | Layer | What to Build | Done When |
 |---|---|---|---|

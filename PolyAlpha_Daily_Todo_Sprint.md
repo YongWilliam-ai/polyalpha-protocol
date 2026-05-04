@@ -375,3 +375,20 @@ Use this order in class:
 ## One-Line Principle
 
 **Do not build the perfect protocol. Build the ugliest version that proves the loop works.**
+
+---
+
+## Phase 2 — Qlib Integration (Post-MVP)
+
+### Trigger Condition
+Do **NOT** start this phase until:
+1. `PolyAlphaVault.sol` is fully functional on Amoy testnet.
+2. The simple Python agent (`signal_engine.py`) successfully logs decisions on-chain.
+3. The dashboard can read and display these events.
+4. Week 12 presentation is completed.
+
+### Phase 2 Goals
+- **Goal 1**: Transform the Becker dataset into Qlib binary format.
+- **Goal 2**: Train an LSTM/LightGBM model in Qlib to predict YES-probability deviation.
+- **Goal 3**: Export static rules/weights from Qlib to replace the simple threshold in `signal_engine.py`.
+- **Reference**: See `Qlib_Evaluation_Report_PolyAlpha.md` for the full architectural justification.

@@ -74,7 +74,7 @@ Never push directly yourself. William must push.
 
 ---
 
-## Current Project Status (as of 2026-04-27)
+## Current Project Status (as of 2026-05-04)
 
 ### Completed ✅
 - [x] PolyAlphaVault.sol — ERC-4626 vault with Quarter-Kelly sizing
@@ -95,6 +95,9 @@ Never push directly yourself. William must push.
 - [x] Add $PALPHA Hub page to frontend (staking, governance, buyback history)
 - [ ] Record 3-minute demo video
 - [ ] Write final PDF report
+- [ ] Execute EdgeBuild UI upgrade (Phase 2 prompt ready in `PolyAlpha_Phase2_EdgeBuild_MiroFish_Prompt.md`)
+- [ ] Add MiroFish swarm stub to `agent/pm_arb_agent.py`
+- [ ] Deploy frontend to Vercel (guide: `docs/Vercel_Deployment_Guide.md`)
 
 ---
 
@@ -114,3 +117,14 @@ Never push directly yourself. William must push.
 3. **NEVER** modify deployed contract addresses
 4. **NEVER** push directly — always tell William to push
 5. **NEVER** use `npm run push` alone — use explicit `git add -A && git commit -m "..." && git push origin main`
+
+---
+
+## Key Documents Added (2026-05-04)
+
+| Document | Location | Purpose |
+|---|---|---|
+| Qlib Evaluation Report | `docs/Qlib_Evaluation_Report_PolyAlpha.md` | Phase 2/3 ML research engine roadmap |
+| Vercel Deployment Guide | `docs/Vercel_Deployment_Guide.md` | Frontend hosting for demo |
+| Phase 2 EdgeBuild Prompt | `PolyAlpha_Phase2_EdgeBuild_MiroFish_Prompt.md` | UI upgrade + MiroFish stub prompt for Claude Code |
+| Complete Revised Project | `PolyAlpha Protocol — Complete Revised Project.md` | Full v2.0 project spec with Prof. Lei feedback responses |

@@ -215,6 +215,26 @@ Constraints:
 
 ---
 
+## Tool 5 — Microsoft Qlib (Phase 2 Research Engine)
+
+### Best use
+- Offline training of prediction models using historical Polymarket data (e.g., Becker dataset)
+- Mining new factors (Alpha) that indicate mispricing in binary outcome markets
+- Rigorous backtesting of complex strategies before deploying to the live agent
+- Automating factor discovery via RD-Agent integration
+
+### Not ideal for
+- Live execution or order routing
+- Replacing the simple Python agent during the MVP phase
+- Quick, ad-hoc API queries to Polymarket
+
+### Rules for Qlib use
+- **DO NOT** attempt to integrate Qlib into the main `signal_engine.py` during MVP.
+- Treat Qlib strictly as an **offline oracle** that generates static rules or model weights.
+- Read `Qlib_Evaluation_Report_PolyAlpha.md` before starting any Qlib-related task to understand the architectural boundaries.
+
+---
+
 ## Standard Workflow
 
 ## Phase 1 — Understand before building
