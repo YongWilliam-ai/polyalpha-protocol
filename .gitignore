@@ -60,3 +60,6 @@ Thumbs.db
 logs/
 agent/signals.jsonl
 agent/logs/*.txt
+
+# Local export files (should never be committed)
+local_files_export.csv
