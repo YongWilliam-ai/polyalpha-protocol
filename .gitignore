@@ -42,6 +42,9 @@ reports/*.html
 reports/*.png
 !reports/.gitkeep
 
+# Auto-generated swarm simulation data
+frontend/public/swarm_latest.json
+
 # OS
 .DS_Store
 Thumbs.db
