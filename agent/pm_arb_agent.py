@@ -40,6 +40,13 @@ try:
 except ImportError:
     pass
 
+# Real MiroFish swarm intelligence (Phase 2)
+try:
+    from mirofish_integration import get_mirofish_swarm_consensus, fetch_market_question
+    _MIROFISH_AVAILABLE = True
+except ImportError:
+    _MIROFISH_AVAILABLE = False
+
 # Import reusable scanners from arb_scanner.py
 # PolyAlpha Strategy 1 + 2 + 3
 from arb_scanner import (
@@ -60,8 +67,12 @@ logging.basicConfig(
 log = logging.getLogger("pm_arb_agent")
 
 # -- Config -------------------------------------------------------------------
-SCAN_LOG_FILE = Path("agent/logs/pm_arb_scan_log.jsonl")
+SCAN_LOG_FILE    = Path("agent/logs/pm_arb_scan_log.jsonl")
 SCAN_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+# Written after each swarm run so the React frontend can display results
+_PROJECT_ROOT    = Path(__file__).resolve().parent.parent
+SWARM_OUTPUT_FILE = _PROJECT_ROOT / "frontend" / "public" / "swarm_latest.json"
 
 # Telegram -- read from env (no defaults; alerts silently skipped if not set)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
@@ -154,6 +165,40 @@ def _format_funding_alert(opp: dict) -> str:
         f"Paper Trading -- NO execution at this capital level\n"
         f"#PolyAlpha #Strategy2"
     )
+
+
+# -- MiroFish swarm helpers ---------------------------------------------------
+
+def _write_swarm_output(swarm: dict) -> None:
+    """Persist latest swarm result to frontend/public/ for the React dashboard."""
+    try:
+        SWARM_OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(SWARM_OUTPUT_FILE, "w") as f:
+            json.dump(swarm, f, indent=2)
+        log.info(f"  Swarm result written -> {SWARM_OUTPUT_FILE}")
+    except Exception as exc:
+        log.warning(f"  Could not write swarm output: {exc}")
+
+
+def _run_swarm_on_market(mid: str, dry_run: bool = False) -> dict | None:
+    """
+    Fetch question for a market ID, run MiroFish consensus, return result.
+    Returns None if mirofish_integration is unavailable.
+    """
+    if not _MIROFISH_AVAILABLE:
+        log.warning("  mirofish_integration not available -- skipping swarm")
+        return None
+    try:
+        question = fetch_market_question(mid)
+        swarm    = get_mirofish_swarm_consensus(question, mid)
+        log.info(
+            f"    [{swarm['label']}] {question[:50]}... "
+            f"consensus={swarm['consensus']:.3f} [{swarm['source']}]"
+        )
+        return swarm
+    except Exception as exc:
+        log.warning(f"  MiroFish swarm failed for {mid[:20]}: {exc}")
+        return None
 
 
 # -- Scan log -----------------------------------------------------------------
@@ -271,6 +316,36 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
             log.info(
                 f"  {len(yesno_opps)} YES/NO arb opportunities found, {alerts_sent} alerts sent"
             )
+
+            # MiroFish fallback -- if genuine YES/NO arb is absent, consult swarm
+            if not yesno_opps and market_ids:
+                log.info("  No YES/NO arb -- running MiroFish swarm on top 5 markets...")
+                swarm_alerts = 0
+                latest_swarm = None
+                for mid in market_ids[:5]:
+                    swarm = _run_swarm_on_market(mid, dry_run=dry_run)
+                    if swarm is None:
+                        continue
+                    latest_swarm = swarm
+                    if swarm["label"] == "SWARM_STRONG_BUY":
+                        votes_summary = " | ".join(
+                            f"{v['persona'][:10]}: {v['vote']}@{v['confidence']}%"
+                            for v in swarm["votes"]
+                        )
+                        msg = (
+                            f"*PolyAlpha* -- MiroFish Swarm Signal [{swarm['label']}]\n"
+                            f"`{swarm['market_question'][:80]}`\n"
+                            f"Consensus: *{swarm['consensus']:.3f}* | {len(swarm['votes'])} personas [{swarm['source']}]\n"
+                            f"{votes_summary}\n"
+                            f"Paper Trading -- informational only\n"
+                            f"#PolyAlpha #MiroFish #SwarmIntelligence"
+                        )
+                        send_telegram(msg, dry_run=dry_run)
+                        swarm_alerts += 1
+                log.info(f"  MiroFish scan: {swarm_alerts} SWARM_STRONG_BUY alerts sent")
+                if latest_swarm:
+                    _write_swarm_output(latest_swarm)
+
         except Exception as exc:
             log.error(f"YES/NO arb scan error: {exc}")
 
@@ -369,5 +444,20 @@ if __name__ == "__main__":
             )
         if not corr:
             print("  None found (markets are internally consistent -- scanner is working correctly)")
+
+        print("\nMiroFish swarm intelligence scan (top 5 markets)...")
+        swarm_ids = get_active_market_ids(limit=5)
+        for mid in (swarm_ids or []):
+            swarm = _run_swarm_on_market(mid)
+            if swarm is None:
+                print(f"  [{mid[:20]}] skipped -- mirofish unavailable")
+                continue
+            print(
+                f"  [{swarm['label']}] {swarm['market_question'][:60]}... "
+                f"consensus={swarm['consensus']:.3f} [{swarm['source']}]"
+            )
+            for line in swarm.get("interview_logs", []):
+                print(f"    {line}")
+            _write_swarm_output(swarm)
     else:
         run_scanner(interval_min=args.interval, dry_run=args.dry_run)

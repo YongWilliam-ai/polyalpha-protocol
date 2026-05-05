@@ -1,0 +1,55 @@
+{
+  "market_question": "Will BTC close above $95,000 on any day before June 2025?",
+  "consensus": 0.734,
+  "label": "SWARM_BUY",
+  "source": "live",
+  "votes": [
+    {
+      "persona": "ContrarianCarl",
+      "vote": "NO",
+      "confidence": 38,
+      "reasoning": "Consensus is already pricing in a rally — fading the crowd here as sentiment is overextended.",
+      "weight": 0.20,
+      "estimate": 0.38
+    },
+    {
+      "persona": "TrendFollowerTina",
+      "vote": "YES",
+      "confidence": 84,
+      "reasoning": "BTC momentum is firmly above the 50-day EMA with expanding volume — trend signal is bullish.",
+      "weight": 0.20,
+      "estimate": 0.84
+    },
+    {
+      "persona": "ValueInvestorVictor",
+      "vote": "YES",
+      "confidence": 72,
+      "reasoning": "Historical post-halving base rates support a 73% probability of reaching this level within 6 months.",
+      "weight": 0.25,
+      "estimate": 0.72
+    },
+    {
+      "persona": "MacroAnalystMaria",
+      "vote": "YES",
+      "confidence": 68,
+      "reasoning": "Fed pause cycle and institutional ETF inflows create a supportive macro backdrop for risk assets.",
+      "weight": 0.20,
+      "estimate": 0.68
+    },
+    {
+      "persona": "OnChainSleuth",
+      "vote": "YES",
+      "confidence": 79,
+      "reasoning": "On-chain accumulation by long-term holders at current levels mirrors early 2021 accumulation phase.",
+      "weight": 0.15,
+      "estimate": 0.79
+    }
+  ],
+  "interview_logs": [
+    "[ContrarianCarl] NO @ 38% -- Consensus is already pricing in a rally — fading the crowd here as sentiment is overextended.",
+    "[TrendFollowerTina] YES @ 84% -- BTC momentum is firmly above the 50-day EMA with expanding volume — trend signal is bullish.",
+    "[ValueInvestorVictor] YES @ 72% -- Historical post-halving base rates support a 73% probability of reaching this level within 6 months.",
+    "[MacroAnalystMaria] YES @ 68% -- Fed pause cycle and institutional ETF inflows create a supportive macro backdrop for risk assets.",
+    "[OnChainSleuth] YES @ 79% -- On-chain accumulation by long-term holders at current levels mirrors early 2021 accumulation phase."
+  ]
+}

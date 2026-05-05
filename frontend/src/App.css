@@ -4,16 +4,65 @@
 
 @layer base {
   body {
-    background-color: #0B0A10;
+    background-color: #050505;
     color: rgb(229, 231, 235);
-    font-family: "Inter", system-ui, sans-serif;
+    font-family: "Inter", "Space Grotesk", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* JetBrains Mono for all monospace elements */
+  code, pre, .font-mono {
+    font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  }
+
+  /* Sharp selection highlight using neon green */
+  ::selection {
+    background: rgba(204, 255, 0, 0.15);
+    color: #ccff00;
   }
 }
 
 @layer utilities {
+  /* Scrollbar */
   .custom-scrollbar::-webkit-scrollbar       { width: 4px; }
   .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-  .custom-scrollbar::-webkit-scrollbar-thumb { background: #2d2d3d; border-radius: 2px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #1a1a1a; }
+
+  /* EdgeBuild glow on hover — neon green aura */
+  .edge-glow {
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .edge-glow:hover {
+    box-shadow: 0 0 0 1px rgba(204, 255, 0, 0.12), 0 0 32px rgba(204, 255, 0, 0.06);
+  }
+
+  /* Accent glow — used on strong buy signals */
+  .glow-accent {
+    box-shadow: 0 0 24px rgba(204, 255, 0, 0.25), 0 0 4px rgba(204, 255, 0, 0.4);
+  }
+
+  /* Subtle scanline overlay for terminal aesthetic */
+  .scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.04) 2px,
+      rgba(0, 0, 0, 0.04) 4px
+    );
+    pointer-events: none;
+  }
+
+  /* Blink cursor animation for terminal prompts */
+  .cursor-blink::after {
+    content: "_";
+    animation: blink 1.1s step-end infinite;
+    color: #ccff00;
+  }
+
   .animate-fade-in-up { animation: fadeInUp 0.3s ease-out; }
 }
 
@@ -25,4 +74,9 @@
 @keyframes toast-in {
   from { opacity: 0; transform: translateX(12px); }
   to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 }

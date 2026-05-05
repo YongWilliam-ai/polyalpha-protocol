@@ -28,43 +28,56 @@ export default function BacktestPage() {
   }, []);
 
   if (loading) return (
-    <div className="text-gray-500 font-mono text-sm p-6 animate-pulse">Loading backtest results...</div>
+    <div className="text-gray-500 font-mono text-sm p-6 animate-pulse">
+      {">"} loading backtest_results...
+    </div>
   );
 
   const hasData = summary && !summary.error;
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-white mb-4">Backtest Results — BTC 7-Minute Momentum Signal</h2>
+      {/* Page header */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-white tracking-tight">
+          Backtest Results
+        </h2>
+        <p className="text-gray-500 font-mono text-xs mt-1">
+          H1: BTC 7-Minute Momentum Signal · Quarter-Kelly Sizing · Paper Trading
+        </p>
+      </div>
 
-      <div className="bg-surface border border-gray-800 text-gray-300 p-4 rounded-lg text-sm mb-4">
-        <strong className="text-white">Methodology:</strong> Tests the 7-minute BTC momentum hypothesis on closed
-        Polymarket markets. At T+7 min, if BTC moved &gt;0.3% AND Polymarket odds were &lt;62% for that direction,
-        the strategy would have entered. Results use Quarter-Kelly sizing and assume paper trading (no slippage modeled in v1).
-        <br /><br />
-        <span className="text-warning font-medium">Important limitation:</span> This backtest approximates T+7 signals from
-        market metadata. Tick-level backtesting with real order book data is a Phase 2 improvement.
-        Treat results as directional, not definitive.
+      {/* Methodology note — EdgeBuild terminal block */}
+      <div className="bg-surface border border-gray-800 border-l-2 border-l-accent p-4 text-sm mb-4 font-mono">
+        <div className="text-xs text-gray-600 mb-2 uppercase tracking-wider">// methodology</div>
+        <span className="text-gray-300">
+          At T+7 min, if BTC moved &gt;0.3% AND Polymarket odds &lt;62% for that direction,
+          the strategy enters. Uses Quarter-Kelly sizing. No slippage modeled in v1.
+        </span>
+        <div className="mt-2 text-xs text-yellow-500">
+          ! limitation: tick-level T+7 signals approximated from metadata.
+          Phase 2 uses marketlens-python L2 data. Treat results as directional.
+        </div>
       </div>
 
       {error && (
-        <div className="bg-red-950 border border-red-500/30 text-red-300 p-4 rounded-lg text-sm mb-4">
-          Failed to load data: {error}<br />
-          Run <code className="bg-gray-900 px-1 rounded">python agent/backtest.py</code> then copy results to{" "}
-          <code className="bg-gray-900 px-1 rounded">frontend/public/</code>
+        <div className="bg-dark border border-red-500/30 text-red-400 p-4 font-mono text-sm mb-4">
+          <span className="text-red-600">ERR</span> Failed to load: {error}<br />
+          Run <code className="text-accent">python agent/backtest.py</code> then copy to{" "}
+          <code className="text-accent">frontend/public/</code>
         </div>
       )}
 
       {!hasData && !error && (
-        <div className="bg-yellow-950/30 border border-yellow-700/30 text-yellow-200 p-4 rounded-lg text-sm mb-4">
-          No backtest data found. Run:{" "}
-          <code className="bg-gray-900 px-1 rounded">cd agent &amp;&amp; python backtest.py</code>
+        <div className="bg-dark border border-yellow-700/30 text-yellow-400 p-4 font-mono text-sm mb-4">
+          <span className="text-yellow-600">WARN</span> No backtest data found. Run:{" "}
+          <code className="text-accent">cd agent &amp;&amp; python backtest.py</code>
         </div>
       )}
 
       {hasData && (
         <>
-          {/* DataCards — Prompt 4 Task 2 */}
+          {/* Metric bento grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
             <DataCard label="Total Trades"  value={summary.n_trades} />
             <DataCard
@@ -80,66 +93,76 @@ export default function BacktestPage() {
 
           {/* Hypothesis verdict */}
           {summary.win_rate_pct >= 58 && (
-            <div className="bg-success/10 border border-success/30 text-success p-4 rounded-lg font-mono text-sm mb-4">
-              ✓ Win rate ≥58%: Hypothesis SUPPORTED — the 7-minute BTC momentum signal has measurable edge on historical data.
+            <div className="bg-accent/5 border border-accent/30 text-accent p-4 font-mono text-sm mb-4">
+              <span className="font-bold">PASS</span> win_rate {">="} 58% — Hypothesis SUPPORTED. 7-min BTC momentum signal has measurable edge.
             </div>
           )}
           {summary.win_rate_pct >= 52 && summary.win_rate_pct < 58 && (
-            <div className="bg-yellow-950/30 border border-yellow-700/30 text-yellow-200 p-4 rounded-lg font-mono text-sm mb-4">
-              △ Win rate 52–58%: Weak positive edge. More data or refined entry rules needed before live deployment.
+            <div className="bg-dark border border-yellow-700/30 text-yellow-400 p-4 font-mono text-sm mb-4">
+              <span className="font-bold">WEAK</span> win_rate 52–58% — marginal positive edge. More data or refined entry rules needed.
             </div>
           )}
           {summary.win_rate_pct < 52 && (
-            <div className="bg-red-950 border border-red-500/30 text-red-300 p-4 rounded-lg font-mono text-sm mb-4">
-              ✗ Win rate &lt;52%: Hypothesis NOT supported. Signal rules need revision before live deployment.
+            <div className="bg-dark border border-red-500/30 text-red-400 p-4 font-mono text-sm mb-4">
+              <span className="font-bold">FAIL</span> win_rate &lt; 52% — Hypothesis NOT supported. Signal rules require revision.
             </div>
           )}
 
           {/* Equity curve */}
           {equityCurve.length > 0 && (
-            <div className="bg-surface border border-gray-800 rounded-lg p-4 mb-6">
-              <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-4">Equity Curve (indexed to 100)</h3>
+            <div className="bg-surface border border-gray-800 border-t-2 border-t-accent p-4 mb-6">
+              <div className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-4">
+                // equity_curve (indexed to 100)
+              </div>
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={equityCurve} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1E1B29" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#111111" />
                   <XAxis
                     dataKey="trade"
-                    label={{ value: "Trade #", position: "insideBottom", offset: -3, fill: "#6b7280" }}
-                    tick={{ fill: "#6b7280", fontSize: 11 }}
+                    label={{ value: "trade #", position: "insideBottom", offset: -3, fill: "#4b5563" }}
+                    tick={{ fill: "#4b5563", fontSize: 11, fontFamily: "JetBrains Mono, monospace" }}
                   />
-                  <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} />
+                  <YAxis tick={{ fill: "#4b5563", fontSize: 11, fontFamily: "JetBrains Mono, monospace" }} />
                   <Tooltip
-                    contentStyle={{ background: "#16141E", border: "1px solid #374151", color: "#e5e7eb" }}
-                    formatter={(v, name) => [v.toFixed(2), name === "equityIdx" ? "Equity Index" : "Cumulative P&L %"]}
+                    contentStyle={{
+                      background:   "#0d0d0d",
+                      border:       "1px solid #1f2937",
+                      color:        "#e5e7eb",
+                      fontFamily:   "JetBrains Mono, monospace",
+                      fontSize:     "12px",
+                    }}
+                    formatter={(v, name) => [v.toFixed(2), name === "equityIdx" ? "equity_index" : "cum_pnl_%"]}
                   />
-                  <ReferenceLine y={100} stroke="#374151" strokeDasharray="4 4" />
-                  <Line type="monotone" dataKey="equityIdx" stroke="#FF4500" strokeWidth={2} dot={false} />
+                  <ReferenceLine y={100} stroke="#1f2937" strokeDasharray="4 4" />
+                  <Line type="monotone" dataKey="equityIdx" stroke="#ccff00" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
-              <p className="text-xs text-gray-600 font-mono mt-2">
-                Starting index = 100. Each trade uses Quarter-Kelly sizing (max 5% TVL).
+              <p className="text-xs text-gray-700 font-mono mt-2">
+                base = 100. Quarter-Kelly sizing (max 5% TVL per trade).
               </p>
             </div>
           )}
 
           {/* Assumptions table */}
           <div>
-            <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-3">Explicit Assumptions (A1–A6)</h3>
-            <div className="bg-surface border border-gray-800 rounded-lg overflow-hidden">
+            <div className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-3">
+              // explicit_assumptions (A1–A6)
+            </div>
+            <div className="bg-surface border border-gray-800 overflow-hidden">
               <table className="w-full text-sm">
                 <tbody>
                   {[
-                    ["A1", "Favorite-longshot bias persists in BTC 15m markets",        "To be validated by this backtest"],
-                    ["A2", "BTC 7-min momentum >0.3% provides ≥8% edge",               "HYPOTHESIS — validated by result above"],
-                    ["A3", "Quarter-Kelly (25% of full Kelly) used for safety",         "Standard institutional practice (Kelly 1956)"],
-                    ["A4", "All v1 trading is testnet only; no real funds",             "Explicit prototype scope"],
+                    ["A1", "Favorite-longshot bias persists in BTC 15m markets",        "validated by this backtest"],
+                    ["A2", "BTC 7-min momentum >0.3% provides >= 8% edge",              "HYPOTHESIS — see result above"],
+                    ["A3", "Quarter-Kelly (25% of full Kelly) used for safety",         "Kelly 1956; institutional standard"],
+                    ["A4", "All v1 trading is testnet only; no real funds",             "explicit prototype scope"],
                     ["A5", "Tick-level T+7 data not available; metadata used as proxy","Phase 2: marketlens-python L2 data"],
-                    ["A6", "No slippage modeled in v1 backtest",                        "Conservative real edge = backtest edge − est. 1–2% slippage"],
+                    ["A6", "No slippage modeled in v1 backtest",                        "real edge = backtest edge - ~1-2% slippage"],
                   ].map(([id, assumption, note]) => (
-                    <tr key={id} className="border-b border-gray-800 last:border-0">
-                      <td className="px-4 py-3 font-mono text-gray-500 text-xs w-10">{id}</td>
-                      <td className="px-4 py-3 text-gray-300">{assumption}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{note}</td>
+                    <tr key={id} className="border-b border-gray-800 last:border-0 hover:bg-surface-hover transition-colors">
+                      <td className="px-4 py-3 font-mono text-gray-600 text-xs w-10">{id}</td>
+                      <td className="px-4 py-3 text-gray-300 text-sm">{assumption}</td>
+                      <td className="px-4 py-3 text-gray-600 text-xs font-mono">{note}</td>
                     </tr>
                   ))}
                 </tbody>

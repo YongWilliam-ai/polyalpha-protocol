@@ -22,8 +22,8 @@ function useToast() {
 
 const TOAST_CLS = {
   info:    "bg-surface border border-gray-700 text-gray-300",
-  success: "bg-green-950 border border-success/30 text-success",
-  error:   "bg-red-950 border border-red-500/30 text-red-300",
+  success: "bg-dark border border-success/30 text-success",
+  error:   "bg-dark border border-red-500/30 text-red-300",
 };
 
 function ToastStack({ toasts }) {
@@ -33,7 +33,7 @@ function ToastStack({ toasts }) {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`px-4 py-3 rounded-lg text-sm font-medium min-w-[220px] max-w-sm shadow-xl ${TOAST_CLS[t.type] || TOAST_CLS.info}`}
+          className={`px-4 py-3 text-sm font-mono min-w-[220px] max-w-sm shadow-xl ${TOAST_CLS[t.type] || TOAST_CLS.info}`}
           style={{ animation: "toast-in 0.2s ease" }}
         >
           {t.message}
@@ -105,7 +105,7 @@ export default function VaultPage() {
       }
       setProvider(prov);
       setWallet(accounts[0]);
-      show(`Wallet connected: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`, "success");
+      show(`Connected: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`, "success");
     } catch {
       show("Wallet connection cancelled", "error");
     }
@@ -122,16 +122,13 @@ export default function VaultPage() {
       const usdcAddress = await vault.asset();
       const usdc        = new ethers.Contract(usdcAddress, USDC_ABI, signer);
       const amount      = ethers.parseUnits(depositAmt, 6);
-      const approveTx   = await usdc.approve(VAULT_ADDRESS, amount);
-      await approveTx.wait();
+      await (await usdc.approve(VAULT_ADDRESS, amount)).wait();
       setTxStatus("Depositing...");
       show("Depositing USDC into vault...", "info");
-      const depositTx = await vault.deposit(amount, wallet);
-      const receipt   = await depositTx.wait();
+      const receipt = await (await vault.deposit(amount, wallet)).wait();
       setTxStatus(`Deposited! Tx: ${receipt.hash}`);
-      show(`Deposited ${depositAmt} USDC successfully`, "success");
-      setDepositAmt("");
-      loadVaultStats();
+      show(`Deposited ${depositAmt} USDC`, "success");
+      setDepositAmt(""); loadVaultStats();
     } catch (e) {
       setTxStatus(`Error: ${e.message}`);
       show("Deposit failed", "error");
@@ -143,17 +140,15 @@ export default function VaultPage() {
     if (!provider || !withdrawAmt) return;
     setLoading(true);
     setTxStatus("Withdrawing...");
-    show("Sending withdrawal transaction...", "info");
+    show("Sending withdrawal...", "info");
     try {
       const signer  = await provider.getSigner();
       const vault   = new ethers.Contract(VAULT_ADDRESS, VAULT_ABI, signer);
       const amount  = ethers.parseUnits(withdrawAmt, 6);
-      const tx      = await vault.withdraw(amount, wallet, wallet);
-      const receipt = await tx.wait();
+      const receipt = await (await vault.withdraw(amount, wallet, wallet)).wait();
       setTxStatus(`Withdrawn! Tx: ${receipt.hash}`);
-      show(`Withdrew ${withdrawAmt} USDC successfully`, "success");
-      setWithdrawAmt("");
-      loadVaultStats();
+      show(`Withdrew ${withdrawAmt} USDC`, "success");
+      setWithdrawAmt(""); loadVaultStats();
     } catch (e) {
       setTxStatus(`Error: ${e.message}`);
       show("Withdrawal failed", "error");
@@ -163,10 +158,10 @@ export default function VaultPage() {
 
   if (!VAULT_ADDRESS) {
     return (
-      <div className="bg-yellow-950 border border-yellow-700/30 text-yellow-200 p-4 rounded-lg text-sm">
-        <strong>Vault not deployed yet.</strong> Run:{" "}
-        <code className="bg-gray-900 px-1 rounded">npm run deploy:amoy</code> then set{" "}
-        <code className="bg-gray-900 px-1 rounded">REACT_APP_VAULT_ADDRESS</code> in frontend/.env
+      <div className="bg-dark border border-yellow-700/30 text-yellow-400 p-4 font-mono text-sm">
+        <strong>Vault not deployed.</strong> Run:{" "}
+        <code className="text-accent">npm run deploy:amoy</code> then set{" "}
+        <code className="text-accent">REACT_APP_VAULT_ADDRESS</code> in frontend/.env
       </div>
     );
   }
@@ -179,51 +174,75 @@ export default function VaultPage() {
         {/* ── Left column ── */}
         <div className="min-w-0">
 
-          {/* Hero */}
+          {/* Hero block */}
           <div className="mb-6">
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-3xl font-bold text-white">PolyAlpha Vault</h1>
+            <div className="flex items-center gap-3 mb-1 flex-wrap">
+              <h1 className="text-3xl font-bold text-white tracking-tight">PolyAlpha Vault</h1>
               {vaultStats && !vaultStats.notDeployed && !vaultStats.error && !vaultStats.halted && (
                 <span className="flex items-center gap-2">
                   <span className="flex h-3 w-3 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-success"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full bg-success opacity-75" />
+                    <span className="relative inline-flex h-3 w-3 bg-success" />
                   </span>
                   <span className="text-xs font-mono text-success uppercase tracking-widest">LIVE</span>
                 </span>
               )}
               {vaultStats?.halted && (
-                <span className="text-xs font-mono text-red-400 border border-red-500/40 px-2 py-0.5 rounded uppercase tracking-widest">
+                <span className="text-xs font-mono text-red-400 border border-red-500/40 px-2 py-0.5 uppercase tracking-widest">
                   HALTED
                 </span>
               )}
             </div>
-            <p className="text-gray-400">Agent-Native Prediction Market Arbitrage</p>
+            <p className="text-gray-500 font-mono text-xs">
+              ERC-4626 · Agent-Native Prediction Market Arbitrage · Quarter-Kelly Sizing
+            </p>
           </div>
 
-          {/* DataCards — Prompt 2 Task 2 */}
+          {/* Hero stats — TVL and APY extra large */}
           {vaultStats && !vaultStats.notDeployed && !vaultStats.error && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-              <DataCard label="Total Value Locked"  value={`$${vaultStats.tvl.toFixed(2)}`}      unit="USDC"   />
-              <DataCard label="Total Shares"         value={vaultStats.shares.toFixed(4)}          unit="paUSDC" />
-              <DataCard label="Peak TVL"             value={`$${vaultStats.peakTvl.toFixed(2)}`}  unit="USDC"   />
-              <DataCard label="Drawdown from Peak"   value={`${vaultStats.drawdown.toFixed(1)}%`} alert={vaultStats.drawdown > 15} />
-              <DataCard label="Circuit Breaker"      value={vaultStats.halted ? "HALTED" : "Active"} alert={vaultStats.halted} />
-            </div>
+            <>
+              {/* Primary metrics — massive numbers */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <div className="bg-surface border border-gray-800 border-t-2 border-t-accent p-6 edge-glow hover:bg-surface-hover transition-all duration-300 group">
+                  <div className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-2">Total Value Locked</div>
+                  <div className="text-6xl font-mono font-bold text-white group-hover:text-accent transition-colors leading-none">
+                    ${vaultStats.tvl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-xs font-mono text-gray-600 mt-2">USDC</div>
+                </div>
+                <div className="bg-surface border border-gray-800 border-t-2 border-t-accent p-6 edge-glow hover:bg-surface-hover transition-all duration-300 group">
+                  <div className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-2">Target APY (Staking)</div>
+                  <div className="text-6xl font-mono font-bold text-accent leading-none">
+                    10%
+                  </div>
+                  <div className="text-xs font-mono text-gray-600 mt-2">Synthetix-style 10% fixed · PALPHA stakers</div>
+                </div>
+              </div>
+
+              {/* Secondary metrics */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+                <DataCard label="Total Shares"       value={vaultStats.shares.toFixed(4)}         unit="paUSDC" />
+                <DataCard label="Peak TVL"           value={`$${vaultStats.peakTvl.toFixed(2)}`} unit="USDC"   />
+                <DataCard label="Drawdown from Peak" value={`${vaultStats.drawdown.toFixed(1)}%`} alert={vaultStats.drawdown > 15} />
+                <DataCard label="Circuit Breaker"    value={vaultStats.halted ? "HALTED" : "Active"} alert={vaultStats.halted} />
+                <DataCard label="Max Position"       value="5% TVL"  unit="per trade" />
+                <DataCard label="Kelly Fraction"     value="0.25x"   unit="Quarter-Kelly" />
+              </div>
+            </>
           )}
 
           {vaultStats?.error && (
-            <div className="bg-red-950 border border-red-500/30 text-red-300 p-4 rounded-lg text-sm mb-4">
-              RPC error — vault stats unavailable: {vaultStats.error}
+            <div className="bg-dark border border-red-500/30 text-red-400 p-4 font-mono text-sm mb-4">
+              <span className="text-red-600">RPC ERR</span> vault stats unavailable: {vaultStats.error}
             </div>
           )}
 
-          {/* Wallet */}
+          {/* Wallet connect */}
           <div className="mb-6">
-            <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-3">Your Wallet</h3>
+            <div className="text-xs font-mono text-gray-600 uppercase tracking-wider mb-3">// wallet</div>
             {wallet ? (
               <div className="flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-success shadow-[0_0_6px_#00E676]" />
+                <span className="w-2 h-2 bg-success shadow-[0_0_6px_#00E676]" />
                 <a
                   className="font-mono text-sm text-accent hover:underline"
                   href={`${POLYGONSCAN_URL}/address/${wallet}`}
@@ -232,11 +251,11 @@ export default function VaultPage() {
                 >
                   {wallet.slice(0, 6)}...{wallet.slice(-4)}
                 </a>
-                <span className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded font-mono">{CHAIN_NAME}</span>
+                <span className="text-xs bg-gray-900 text-gray-400 px-2 py-0.5 font-mono border border-gray-800">{CHAIN_NAME}</span>
               </div>
             ) : (
               <button
-                className="flex items-center gap-2 bg-accent hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                className="flex items-center gap-2 bg-accent hover:bg-accent-dark text-black px-5 py-2.5 text-sm font-bold transition-colors"
                 onClick={connectWallet}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -251,46 +270,54 @@ export default function VaultPage() {
           {/* Deposit / Withdraw */}
           {wallet && (
             <div className="mb-6">
-              <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-3">Deposit / Withdraw USDC</h3>
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="number"
-                  placeholder="Amount (USDC)"
-                  value={depositAmt}
-                  onChange={(e) => setDepositAmt(e.target.value)}
-                  className="bg-surface border border-gray-700 text-gray-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-accent w-44"
-                />
-                <button
-                  className="bg-accent hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-                  onClick={handleDeposit}
-                  disabled={loading}
-                >
-                  {loading ? "Processing..." : "Deposit"}
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="Amount (USDC)"
-                  value={withdrawAmt}
-                  onChange={(e) => setWithdrawAmt(e.target.value)}
-                  className="bg-surface border border-gray-700 text-gray-200 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-accent w-44"
-                />
-                <button
-                  className="border border-accent text-accent hover:bg-accent/10 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
-                  onClick={handleWithdraw}
-                  disabled={loading}
-                >
-                  {loading ? "Processing..." : "Withdraw"}
-                </button>
+              <div className="text-xs font-mono text-gray-600 uppercase tracking-wider mb-3">// deposit / withdraw</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-surface border border-gray-800 p-4">
+                  <div className="text-xs font-mono text-gray-600 mb-2">DEPOSIT USDC</div>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={depositAmt}
+                      onChange={(e) => setDepositAmt(e.target.value)}
+                      className="bg-dark border border-gray-700 text-gray-200 px-3 py-2 font-mono text-sm focus:outline-none focus:border-accent flex-1 min-w-0"
+                    />
+                    <button
+                      className="bg-accent hover:bg-accent-dark text-black px-4 py-2 text-sm font-bold transition-colors disabled:opacity-50"
+                      onClick={handleDeposit}
+                      disabled={loading}
+                    >
+                      {loading ? "..." : "Deposit"}
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-surface border border-gray-800 p-4">
+                  <div className="text-xs font-mono text-gray-600 mb-2">WITHDRAW USDC</div>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={withdrawAmt}
+                      onChange={(e) => setWithdrawAmt(e.target.value)}
+                      className="bg-dark border border-gray-700 text-gray-200 px-3 py-2 font-mono text-sm focus:outline-none focus:border-accent flex-1 min-w-0"
+                    />
+                    <button
+                      className="border border-accent text-accent hover:bg-accent/10 px-4 py-2 text-sm font-bold transition-colors disabled:opacity-50"
+                      onClick={handleWithdraw}
+                      disabled={loading}
+                    >
+                      {loading ? "..." : "Withdraw"}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {txStatus && (
-                <div className={`mt-3 p-3 rounded-lg text-sm ${
+                <div className={`mt-3 p-3 text-sm font-mono ${
                   txStatus.startsWith("Deposited") || txStatus.startsWith("Withdrawn")
-                    ? "bg-green-950 border border-success/30 text-success"
+                    ? "bg-dark border border-success/30 text-success"
                     : txStatus.startsWith("Error")
-                    ? "bg-red-950 border border-red-500/30 text-red-300"
+                    ? "bg-dark border border-red-500/30 text-red-400"
                     : "bg-surface border border-gray-700 text-gray-300"
                 }`}>
                   {txStatus}
@@ -309,35 +336,35 @@ export default function VaultPage() {
             </div>
           )}
 
-          {/* Risk Parameters Table — Prompt 2 Task 3 */}
+          {/* Risk Parameters */}
           <div>
-            <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-3">Risk Parameters</h3>
-            <div className="bg-surface border border-gray-800 rounded-lg overflow-hidden">
+            <div className="text-xs font-mono text-gray-600 uppercase tracking-wider mb-3">// risk_parameters</div>
+            <div className="bg-surface border border-gray-800 overflow-hidden">
               <table className="w-full text-sm">
                 <tbody>
                   {[
-                    ["Performance Fee",    "20% of profits"],
-                    ["Management Fee",     "0.5% annual"],
-                    ["Max Position Size",  "5% of TVL per trade"],
-                    ["Max Total Exposure", "40% of TVL"],
-                    ["Circuit Breaker",    "Auto-halt at 20% drawdown from peak"],
-                    ["Kelly Fraction",     "Quarter-Kelly (25% of full Kelly)"],
+                    ["performance_fee",      "20% of profits"],
+                    ["management_fee",       "0.5% annual"],
+                    ["max_position_size",    "5% of TVL per trade"],
+                    ["max_total_exposure",   "40% of TVL"],
+                    ["circuit_breaker",      "auto-halt at 20% drawdown from peak"],
+                    ["kelly_fraction",       "0.25x (Quarter-Kelly)"],
                   ].map(([param, val]) => (
-                    <tr key={param} className="border-b border-gray-800 last:border-0">
-                      <td className="px-4 py-3 text-sm text-gray-400">{param}</td>
+                    <tr key={param} className="border-b border-gray-800 last:border-0 hover:bg-surface-hover transition-colors">
+                      <td className="px-4 py-3 text-xs font-mono text-gray-600">{param}</td>
                       <td className="px-4 py-3 text-sm font-mono text-white">{val}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-gray-600 font-mono mt-2">
-              Hardcoded in <code>PolyAlphaVault.sol</code>. Phase 2: DAO governance via 48h timelock.
+            <p className="text-xs text-gray-700 font-mono mt-2">
+              hardcoded in PolyAlphaVault.sol · Phase 2: DAO governance via 48h timelock
             </p>
           </div>
         </div>
 
-        {/* ── Right column: signal radar ── */}
+        {/* ── Right column ── */}
         <div className="lg:sticky lg:top-20">
           <SocialFeed />
         </div>
