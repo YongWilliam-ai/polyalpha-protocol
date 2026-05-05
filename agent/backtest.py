@@ -213,6 +213,57 @@ def simulate_signal_from_market(market: dict) -> dict | None:
     }
 
 
+# -- Cash-flow PnL calculator -------------------------------------------------
+
+def calculate_pnl(trades: list) -> dict:
+    """
+    Precise cash-flow PnL from polymarket-toolkit/compute_precise_pnl.py.
+
+    Strictly separates two PnL variants:
+        pnl          = SUM(REDEEM + SELL) - SUM(BUY)   -- pure trading cashflow
+        pnl_inclusive = pnl + SUM(rebates)              -- includes maker rebates
+
+    Each trade dict must contain:
+        "bet_size_usd"  float  -- USDC spent on the BUY leg
+        "won"           bool   -- True -> REDEEM payout; False -> expired at $0
+        "cash_pnl_usd"  float  -- net cash flow for this trade (payout - cost)
+
+    Rebates: 0.1% maker rebate applied on winning (REDEEM) trades,
+    matching Polymarket's actual fee-rebate schedule for limit orders.
+    """
+    MAKER_REBATE_PCT = 0.001  # 0.1% rebate on winning REDEEM trades
+
+    total_bought   = 0.0
+    total_received = 0.0
+    total_rebates  = 0.0
+
+    for t in trades:
+        bet_size  = float(t.get("bet_size_usd", abs(t.get("cash_pnl_usd", 0.0))))
+        won       = bool(t.get("won", False))
+        cash_pnl  = float(t.get("cash_pnl_usd", 0.0))
+
+        # BUY leg: USDC leaves the wallet
+        total_bought += bet_size
+
+        if won:
+            # REDEEM leg: $1 per share * shares = bet_size + cash_pnl
+            payout          = max(bet_size + cash_pnl, 0.0)
+            total_received += payout
+            total_rebates  += payout * MAKER_REBATE_PCT
+        # EXPIRY (lost): no REDEEM, no rebate — total_received unchanged
+
+    pnl           = total_received - total_bought
+    pnl_inclusive = pnl + total_rebates
+
+    return {
+        "total_bought":   round(total_bought,   4),
+        "total_received": round(total_received,  4),
+        "pnl":            round(pnl,            4),
+        "total_rebates":  round(total_rebates,   4),
+        "pnl_inclusive":  round(pnl_inclusive,   4),
+    }
+
+
 # -- Hypothesis Validation backtest -------------------------------------------
 
 def run_backtest(markets: list[dict], hypothesis_id: str = HYPOTHESIS_ID) -> dict:
@@ -281,6 +332,7 @@ def run_backtest(markets: list[dict], hypothesis_id: str = HYPOTHESIS_ID) -> dic
         if balance > peak_balance:
             peak_balance = balance
 
+        raw["bet_size_usd"]   = round(bet_size, 4)
         raw["cash_pnl_usd"]   = round(cash_pnl, 4)
         raw["balance_after"]  = round(balance, 4)
         trades.append(raw)
@@ -333,29 +385,38 @@ def run_backtest(markets: list[dict], hypothesis_id: str = HYPOTHESIS_ID) -> dic
         if np.std(returns) > 0 else 0.0
     )
 
+    # Precise cash-flow PnL breakdown (polymarket-toolkit/compute_precise_pnl.py)
+    pnl_breakdown = calculate_pnl(trades)
+
     results = {
-        "hypothesis_id":     hypothesis_id,
-        "hypothesis_status": "KILLED" if kill_reason else "ALIVE",
-        "kill_reason":       kill_reason,
-        "killed_at_trade":   killed_at,
-        "n_trades":          n_trades,
-        "n_wins":            n_wins,
-        "n_losses":          n_trades - n_wins,
-        "win_rate_pct":      round(win_rate * 100, 1),
-        "starting_balance":  STARTING_BALANCE,
-        "ending_balance":    round(balance, 2),
-        "total_pnl_pct":     round(total_pnl_pct, 2),
-        "sharpe_ratio":      round(sharpe, 2),
-        "max_drawdown_pct":  round(abs(max_dd_pct), 2),
-        "avg_edge_pct":      round(float(df["edge_bps"].mean()) / 100, 2),
-        "avg_kelly_pct":     round(float(df["kelly_bps"].mean()) / 100, 2),
-        "skipped_markets":   skipped,
-        "avg_slippage_pct":  round(
+        "hypothesis_id":       hypothesis_id,
+        "hypothesis_status":   "KILLED" if kill_reason else "ALIVE",
+        "kill_reason":         kill_reason,
+        "killed_at_trade":     killed_at,
+        "n_trades":            n_trades,
+        "n_wins":              n_wins,
+        "n_losses":            n_trades - n_wins,
+        "win_rate_pct":        round(win_rate * 100, 1),
+        "starting_balance":    STARTING_BALANCE,
+        "ending_balance":      round(balance, 2),
+        "total_pnl_pct":       round(total_pnl_pct, 2),
+        "sharpe_ratio":        round(sharpe, 2),
+        "max_drawdown_pct":    round(abs(max_dd_pct), 2),
+        "avg_edge_pct":        round(float(df["edge_bps"].mean()) / 100, 2),
+        "avg_kelly_pct":       round(float(df["kelly_bps"].mean()) / 100, 2),
+        "skipped_markets":     skipped,
+        "avg_slippage_pct":    round(
             total_slippage_cost / max(total_bet_volume, 1e-9) * 100, 3
         ),
-        "high_slippage_flag": (
+        "high_slippage_flag":  (
             total_slippage_cost / max(total_bet_volume, 1e-9) * 100 > SLIPPAGE_PAUSE_PCT
         ),
+        # Precise cash-flow breakdown (pnl = trading only; pnl_inclusive = + rebates)
+        "cashflow_total_bought":   pnl_breakdown["total_bought"],
+        "cashflow_total_received": pnl_breakdown["total_received"],
+        "cashflow_pnl":            pnl_breakdown["pnl"],
+        "cashflow_rebates":        pnl_breakdown["total_rebates"],
+        "cashflow_pnl_inclusive":  pnl_breakdown["pnl_inclusive"],
     }
 
     # Save equity curve for dashboard

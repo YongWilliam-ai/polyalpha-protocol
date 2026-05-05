@@ -33,6 +33,8 @@ from pathlib import Path
 
 import requests
 
+from safety_gate import run_safety_checks
+
 # dotenv is optional -- load .env if available, otherwise rely on shell env vars
 try:
     from dotenv import load_dotenv
@@ -77,6 +79,10 @@ SWARM_OUTPUT_FILE = _PROJECT_ROOT / "frontend" / "public" / "swarm_latest.json"
 # Telegram -- read from env (no defaults; alerts silently skipped if not set)
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
+
+# Safety gate: paper-trade position size and portfolio TVL used for ratio checks
+PAPER_TRADE_SIZE_USDT = 100.0      # $100 standard paper bet per alert
+PAPER_PORTFOLIO_TVL   = 10_000.0   # $10k paper portfolio for position-ratio gate
 
 # Alert thresholds
 MIN_NET_RETURN_TO_ALERT  = 0.02    # 2% net return minimum for PM alert
@@ -265,6 +271,14 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
                     log.info(f"  Skipping [{opp['question'][:40]}...] -- oracle risk {risk:.2f}")
                     continue
 
+                gate_symbol = opp.get("question", "POLYMARKET")[:30]
+                if not run_safety_checks(
+                    PAPER_TRADE_SIZE_USDT, PAPER_PORTFOLIO_TVL,
+                    gate_symbol, "BUY_YES", dry_run=dry_run,
+                ):
+                    log.info(f"  [SafetyGate] Alert blocked for [{gate_symbol}]")
+                    continue
+
                 alert = _format_poly_alert(opp, risk)
                 send_telegram(alert, dry_run=dry_run)
                 alerts_sent += 1
@@ -289,6 +303,13 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
                 if funding_result["source"] == "mock":
                     log.info("  Skipping Telegram alert -- source is MOCK")
                     continue
+                gate_symbol = opp.get("symbol", "FUNDING")
+                if not run_safety_checks(
+                    PAPER_TRADE_SIZE_USDT, PAPER_PORTFOLIO_TVL,
+                    gate_symbol, "FUNDING_ARB", dry_run=dry_run,
+                ):
+                    log.info(f"  [SafetyGate] Alert blocked for [{gate_symbol}]")
+                    continue
                 alert = _format_funding_alert(opp)
                 send_telegram(alert, dry_run=dry_run)
                 alerts_sent += 1
@@ -309,6 +330,13 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
             for opp in yesno_opps:
                 if opp["profit_pct"] < MIN_YES_NO_PROFIT_PCT:
                     continue
+                gate_symbol = opp.get("market_id", "YESNO")[:30]
+                if not run_safety_checks(
+                    PAPER_TRADE_SIZE_USDT, PAPER_PORTFOLIO_TVL,
+                    gate_symbol, "BUY_YES_NO", dry_run=dry_run,
+                ):
+                    log.info(f"  [SafetyGate] Alert blocked for [{gate_symbol}]")
+                    continue
                 alert = _format_yes_no_arb_alert(opp)
                 send_telegram(alert, dry_run=dry_run)
                 alerts_sent += 1
@@ -328,6 +356,12 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
                         continue
                     latest_swarm = swarm
                     if swarm["label"] == "SWARM_STRONG_BUY":
+                        if not run_safety_checks(
+                            PAPER_TRADE_SIZE_USDT, PAPER_PORTFOLIO_TVL,
+                            mid[:30], "SWARM_BUY", dry_run=dry_run,
+                        ):
+                            log.info(f"  [SafetyGate] MiroFish alert blocked for [{mid[:20]}]")
+                            continue
                         votes_summary = " | ".join(
                             f"{v['persona'][:10]}: {v['vote']}@{v['confidence']}%"
                             for v in swarm["votes"]
@@ -358,6 +392,13 @@ def run_scanner(interval_min: int = 30, dry_run: bool = False) -> None:
             alerts_sent = 0
             for opp in corr_opps:
                 if opp["spread_bps"] < MIN_CORRELATION_SPREAD_BPS:
+                    continue
+                gate_symbol = opp.get("violation_id", "CORR_ARB")
+                if not run_safety_checks(
+                    PAPER_TRADE_SIZE_USDT, PAPER_PORTFOLIO_TVL,
+                    gate_symbol, "CORR_ARB", dry_run=dry_run,
+                ):
+                    log.info(f"  [SafetyGate] Alert blocked for [{gate_symbol}]")
                     continue
                 alert = _format_correlation_arb_alert(opp)
                 send_telegram(alert, dry_run=dry_run)

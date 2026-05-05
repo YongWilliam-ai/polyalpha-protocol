@@ -24,13 +24,21 @@ import time
 import requests
 import numpy as np
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
-BINANCE_KLINE_URL = "https://api.binance.com/api/v3/klines"
-BINANCE_PRICE_URL = "https://api.binance.com/api/v3/ticker/price"
-GAMMA_API         = "https://gamma-api.polymarket.com"
-CLOB_HOST         = "https://clob.polymarket.com"
-SENTIMENT_API_URL = "https://ai.6551.io/open/free_hot"   # 6551Team/daily-news MCP source
+from pm_toolkit_python import get_yes_price as _pm_get_yes_price
+from news_client import NewsAPIClient
+from momentum_scorer import compute_momentum_score, score_to_signal
+
+BINANCE_KLINE_URL  = "https://api.binance.com/api/v3/klines"
+BINANCE_PRICE_URL  = "https://api.binance.com/api/v3/ticker/price"
+GAMMA_API          = "https://gamma-api.polymarket.com"
+CLOB_HOST          = "https://clob.polymarket.com"
+TRADE_HISTORY_FILE = Path(__file__).parent / "logs" / "trade_history.jsonl"
+
+# Module-level NewsAPIClient singleton (reuses connection, holds retry state)
+_news_client = NewsAPIClient(timeout=5.0)
 
 # Sentiment gate: Kelly fraction multiplier applied to UP signals during BEARISH macro
 SENTIMENT_KELLY_REDUCTION = 0.5
@@ -98,93 +106,52 @@ class BtcSignal:
 
 def get_polymarket_v2_odds(market_id: str) -> Optional[float]:
     """
-    Fetch YES token odds from Polymarket V2.
+    Fetch YES token odds via pm_toolkit_python dual-source strategy.
 
-    Primary:  py-clob-client midpoint via CLOB REST API (no auth required for reads).
-    Fallback: Gamma API REST call (always works, slightly stale vs live orderbook).
+    Delegates to pm_toolkit_python.get_yes_price() which implements:
+        Primary:  CLOB midpoint (live orderbook, MAX_RETRIES=3, exponential backoff)
+        Fallback: Gamma API  (always available,  MAX_RETRIES=3, exponential backoff)
 
-    market_id is the YES-outcome token ID (condition_id + 0 index) from Gamma API.
-    Returns YES probability (0-1) or None on failure.
+    market_id is the YES-outcome token ID from Gamma API.
+    Returns YES probability in [0, 1] or None on failure.
     """
-    # Primary: CLOB midpoint — live orderbook price, no auth required for reads
-    try:
-        resp = requests.get(
-            f"{CLOB_HOST}/midpoint",
-            params={"token_id": market_id},
-            timeout=5,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            mid = data.get("mid")
-            if mid is not None:
-                return float(mid)
-    except Exception:
-        pass
-
-    # Fallback: Gamma API REST call (V2-compatible for price reads)
-    try:
-        resp = requests.get(
-            f"{GAMMA_API}/markets/{market_id}",
-            timeout=5,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            prices = data.get("outcomePrices", [])
-            if prices:
-                return float(prices[0])
-    except Exception:
-        pass
-    return None
+    return _pm_get_yes_price(market_id)
 
 
 # ── Macro sentiment gate ──────────────────────────────────────────────────────
 
 def get_macro_sentiment() -> str:
     """
-    Returns current crypto macro sentiment: "BULLISH", "BEARISH", or "NEUTRAL".
+    Returns current crypto macro sentiment via NewsAPIClient (6551Team/daily-news).
 
-    # OpenSource_Integration_Plan.md Strategy B3 — 6551Team/daily-news MCP
-    # Source: https://ai.6551.io/open/free_hot (category=crypto)
-    # Each item has a `signal` field: "bullish" | "bearish" | absent.
-    # Decision rule: if bullish count > bearish + 2 → BULLISH
-    #                if bearish count > bullish + 2 → BEARISH
-    #                otherwise                      → NEUTRAL
-    # The +2 buffer prevents a single headline from swinging the gate.
-
-    Fail-safe: returns "NEUTRAL" on any network or parse failure so it
-    never blocks a valid signal due to an API outage.
+    Delegates to NewsAPIClient.get_crypto_sentiment() which implements:
+        - Real HTTP GET to https://ai.6551.io/open/free_hot?category=crypto&limit=10
+        - MAX_RETRIES=2 with exponential backoff (1s, 2s) matching api_client.py
+        - Decision rule: bullish > bearish+2 -> BULLISH; bearish > bullish+2 -> BEARISH
+        - Falls back to "NEUTRAL" on any failure (never blocks the agent)
     """
-    try:
-        resp = requests.get(
-            SENTIMENT_API_URL,
-            params={"category": "crypto", "limit": 10},
-            timeout=5,
-        )
-        if resp.status_code != 200:
-            return "NEUTRAL"
-
-        payload = resp.json()
-        # Handle both list responses and wrapped {"data": [...]} shapes
-        if isinstance(payload, list):
-            items = payload
-        elif isinstance(payload, dict):
-            items = payload.get("data", payload.get("items", payload.get("list", [])))
-        else:
-            return "NEUTRAL"
-
-        bullish = sum(1 for i in items if str(i.get("signal", "")).lower() == "bullish")
-        bearish = sum(1 for i in items if str(i.get("signal", "")).lower() == "bearish")
-
-        if bullish > bearish + 2:
-            return "BULLISH"
-        if bearish > bullish + 2:
-            return "BEARISH"
-        return "NEUTRAL"
-    except Exception:
-        return "NEUTRAL"
+    return _news_client.get_crypto_sentiment(limit=10)
 
 
 # ── BTC data fetching ─────────────────────────────────────────────────────────
+
+def get_btc_recent_closes(n_bars: int = 35) -> list:
+    """
+    Fetch the last n_bars 1-minute BTC/USDT closing prices from Binance.
+    Used by momentum_scorer to compute ROC + RSI + MACD.
+    Returns empty list on any failure (caller must handle gracefully).
+    """
+    try:
+        resp = requests.get(
+            BINANCE_KLINE_URL,
+            params={"symbol": "BTCUSDT", "interval": "1m", "limit": n_bars},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        return [float(candle[4]) for candle in resp.json()]  # candle[4] = close price
+    except Exception:
+        return []
+
 
 def get_btc_price_now() -> float:
     """Current BTC/USDT spot price from Binance."""
@@ -327,43 +294,55 @@ def monte_carlo_kelly(
 
 
 def empirical_kelly(
-    p: float,
-    market_price: float,
-    trade_history: list,
-    n_window: int = 50,
+    win_rate: float,
+    odds: float,
+    n_window: int = 30,
 ) -> float:
     """
-    Empirical Kelly sizing using ACTUAL win rate from recent trade history.
+    File-based empirical Kelly sizing (@RohOnChain method + bgtask budget-allocator.ts).
 
-    # Inspired by @RohOnChain Empirical Kelly research
+    Reads agent/logs/trade_history.jsonl to derive the ACTUAL win rate from the
+    last n_window closed trades. Falls back to theoretical win_rate when fewer
+    than 10 trades are available (insufficient statistical sample).
 
-    Unlike monte_carlo_kelly() which models epistemic uncertainty around a
-    fixed theoretical probability, this uses the OBSERVED win rate from the
-    last N=50 trades as the ground-truth p -- directly grounding position
-    sizing in real performance rather than assumptions.
+    Kelly formula (binary prediction market):
+        b      = (1 / odds) - 1   (net odds: gain per dollar wagered on a YES)
+        p      = empirical win rate
+        q      = 1 - p
+        f*     = (p * b - q) / b
 
-    Falls back to monte_carlo_kelly() if fewer than 10 trades exist
-    (insufficient sample for reliable win-rate estimation).
+    Result is clamped to [0.01, 0.10] (1%-10% max position) instead of raw
+    quarter-Kelly, matching bgtask/budget-allocator.ts conservative defaults.
 
-    trade_history: list of dicts with at least {"won": bool}
+    Args:
+        win_rate:  Theoretical win probability (fallback when history is thin).
+        odds:      Market YES price (e.g. 0.55 for a 55% market).
+        n_window:  Number of recent trades to use for empirical win rate.
     """
-    # Inspired by @RohOnChain Empirical Kelly research
-    recent = trade_history[-n_window:] if len(trade_history) > n_window else trade_history
+    # Read empirical win rate from persisted trade history
+    p = win_rate  # default to theoretical until we have enough data
+    try:
+        if TRADE_HISTORY_FILE.exists():
+            records = [
+                json.loads(line)
+                for line in TRADE_HISTORY_FILE.read_text().splitlines()
+                if line.strip()
+            ]
+            recent = records[-n_window:] if len(records) > n_window else records
+            closed = [r for r in recent if r.get("won") is not None]
+            if len(closed) >= 10:
+                p = sum(1 for r in closed if r.get("won") is True) / len(closed)
+    except Exception:
+        pass  # file read failure -> stay with theoretical win_rate
 
-    if len(recent) < 10:
-        return monte_carlo_kelly(p, market_price)
+    b = (1.0 / odds) - 1.0 if odds > 0 else 0.0
+    if b <= 0 or p <= 0:
+        return 0.01
 
-    empirical_wr = sum(1 for t in recent if t.get("won", False)) / len(recent)
+    q     = 1.0 - p
+    f_star = (p * b - q) / b
 
-    if empirical_wr <= market_price:
-        return 0.0
-
-    b = (1 - market_price) / market_price
-    q = 1 - empirical_wr
-    f_full = (empirical_wr * b - q) / b
-    f_quarter = max(f_full, 0.0) * KELLY_FRACTION
-
-    return min(f_quarter, MAX_POSITION_BPS / 10_000)
+    return float(np.clip(f_star, 0.01, 0.10))
 
 
 # ── Oracle hash ───────────────────────────────────────────────────────────────
@@ -428,6 +407,17 @@ def generate_signal(
     if abs(btc_momentum) < MOMENTUM_THRESHOLD:
         return None
 
+    # Three-factor momentum confirmation (momentum_scorer.py — ROC+RSI+MACD)
+    # Fetch recent 1m closes and compute the multi-factor score.
+    # Abort if the three-factor signal directly contradicts the price momentum direction.
+    # A HOLD score (|score| < 0.20) is neutral — we trust the raw momentum in that case.
+    recent_closes = get_btc_recent_closes(35)
+    if recent_closes:
+        m_score  = compute_momentum_score(recent_closes)
+        m_signal = score_to_signal(m_score)
+        if (btc_momentum > 0 and m_signal == "DOWN") or (btc_momentum < 0 and m_signal == "UP"):
+            return None  # three-factor model contradicts price momentum — skip
+
     # Determine which direction BTC is moving
     btc_moving_up = btc_momentum > 0
 
@@ -457,11 +447,8 @@ def generate_signal(
     # Build oracle hash for on-chain integrity
     oracle_hash = build_oracle_hash(btc_open, btc_now, market_price, ts)
 
-    # Kelly sizing: empirical (from actual win rate) if history exists, else Monte Carlo
-    if trade_history and len(trade_history) >= 10:
-        kelly_f = empirical_kelly(ai_prob, relevant_price, trade_history)
-    else:
-        kelly_f = monte_carlo_kelly(ai_prob, relevant_price)
+    # Kelly sizing: empirical (reads trade_history.jsonl, fallback to Monte Carlo)
+    kelly_f = empirical_kelly(ai_prob, relevant_price)
 
     # Macro sentiment gate (OpenSource_Integration_Plan.md B3 -- 6551Team/daily-news)
     # UP signals during BEARISH macro are likely momentum false positives.
