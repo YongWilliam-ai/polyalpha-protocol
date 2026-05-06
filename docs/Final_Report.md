@@ -1,0 +1,84 @@
+# PolyAlpha Protocol: A DAO-Governed, AI-Driven Market-Making Vault
+
+**Course:** ISOM3270 Blockchain Programming in Business Applications  
+**Student:** William Yong  
+**Date:** May 8, 2026  
+
+## I. Executive Summary & Problem Statement
+
+### Project Introduction
+PolyAlpha Protocol is a decentralized finance (DeFi) application that combines an ERC-4626 smart contract vault, a rule-based AI trading agent, and a DAO governance model. The protocol is designed to capture yield from decentralized prediction markets like Polymarket by systematically exploiting structural pricing inefficiencies.
+
+### Problem Definition & Pain Point
+Prediction markets suffer from the well-documented "favorite-longshot bias," where retail participants consistently overprice low-probability events (longshots) and underprice high-probability events (favorites) [1]. Capitalizing on this bias requires high-frequency data infrastructure, complex quantitative models, and significant capital, creating a high barrier to entry for everyday investors.
+
+### Limitations of Current Solutions
+Current solutions fall into two extremes:
+1. **Centralized SaaS Platforms (e.g., EdgeBuild):** Lack on-chain transparency, require trusting a centralized entity, and have no DAO governance [2].
+2. **Traditional Quant Funds:** Operate as proprietary black boxes, completely inaccessible to retail investors.
+
+### Proposed Solution & Innovation
+PolyAlpha democratizes quantitative arbitrage by allowing anyone to deposit USDC into an on-chain vault. An off-chain AI agent, integrated with 6 proven open-source projects (including MiroFish Swarm AI and BitPilot Safety Chain), autonomously executes trades based on the Empirical Kelly criterion. All trade signals are logged immutably on-chain, providing 100% transparency.
+
+## II. Business & Market Analysis
+
+### Target Market & Size
+The Total Addressable Market (TAM) for prediction markets is projected to reach $1.5 billion by 2027 [3]. PolyAlpha targets the growing segment of DeFi yield seekers and crypto-native investors looking for uncorrelated, risk-adjusted returns outside of traditional lending protocols.
+
+### Value Proposition
+PolyAlpha offers a unique value proposition: **Institutional-grade quant strategies with Web3 transparency.** Users gain access to advanced AI arbitrage without needing technical expertise, while retaining full visibility into the vault's operations via a React-based dashboard.
+
+### Competitive Analysis & Advantage
+Compared to competitors like EdgeBuild and Augur, PolyAlpha is the *only* platform combining all five critical features: prediction market integration, on-chain transparency, DAO governance, AI arbitrage, and an open-source architecture [4]. Our integration of the MiroFish Swarm AI (5 distinct AI personas voting on market probabilities) provides a significant edge in signal accuracy.
+
+### Go-to-Market (GTM) Strategy
+Our GTM strategy focuses on building trust through transparency. We will open-source our backtesting data (showing a 62.3% win rate and 2.1 Sharpe ratio) and launch a community-driven DAO to incentivize early adopters with $PALPHA token rewards.
+
+## III. Technical Architecture
+
+### System Overview
+The system is divided into three layers:
+1. **On-Chain Contracts:** 6 core Solidity (v0.8.25) contracts deployed on ChainLab Testnet.
+2. **Off-Chain AI Agent:** A Python-based engine handling data ingestion, sentiment analysis, and trade execution.
+3. **Frontend Dashboard:** A React + TailwindCSS application deployed on Vercel.
+
+### Data Design (On-chain & Off-chain)
+- **Off-Chain:** The Python agent fetches real-time CLOB data from Polymarket and sentiment scores from the `6551Team/daily-news` API.
+- **On-Chain:** Only the final trade decisions, asset management (deposits/withdrawals), and performance metrics are logged on-chain to minimize gas costs while maintaining auditability.
+
+### Smart Contract Functions
+- `PolyAlphaVault.sol`: An ERC-4626 compliant vault managing USDC deposits and share minting.
+- `PALPHAToken.sol`: The native governance and utility token.
+- `PALPHABuybackBurn.sol`: Automatically allocates 10% of trading profits to buy back and burn $PALPHA tokens.
+
+### Security Considerations
+Security is enforced via the BitPilot Safety Chain, which includes:
+- Daily trade caps (max 5 trades/day).
+- Position limits (max 10% of TVL per trade).
+- A hard circuit breaker that halts trading if maximum drawdown exceeds 15%.
+
+### Test Results & Analysis
+Paper trading simulations over 2 years of historical Polymarket data yielded a 62.3% win rate, a Sharpe ratio of 2.1, and a maximum drawdown of 11.2%. The Cash-flow PnL model confirmed a final profit of +$31,400 on a simulated initial capital [5].
+
+## IV. Business Model & Tokenomics Design
+
+### Revenue Streams
+PolyAlpha operates on a sustainable 2/20 hedge fund structure:
+- **2% Annual Management Fee** on total value locked (TVL).
+- **20% Performance Fee** on profits generated by the AI agent.
+
+### Financial Projection and Analysis
+Assuming a Phase 3 target of $10M TVL and an 18.7% annual return, the protocol projects $200,000 in management fees and $374,000 in performance fees, totaling $574,000 in annual revenue.
+
+### Token Utility & Economic Model
+The $PALPHA token is central to the ecosystem. It is used for DAO governance and staking rewards. The supply is deflationary, driven by the buyback-and-burn mechanism funded by 10% of the performance fee profits. This aligns the incentives of the protocol, the AI agent, and the token holders.
+
+## V. Conclusion
+PolyAlpha Protocol successfully bridges the gap between sophisticated AI arbitrage and decentralized finance. By integrating proven open-source technologies and maintaining strict on-chain transparency, it provides a scalable, secure, and profitable infrastructure layer for prediction market finance. The successful deployment of Phase 1 and the ongoing Phase 2 integrations position PolyAlpha for a strong mainnet launch.
+
+## References
+[1] Vaughan Williams, L. (1999). Information efficiency in betting markets: A survey. *Bulletin of Economic Research*, 51(1), 1-30.  
+[2] EdgeBuild Documentation. (2025). *Platform Architecture and Centralization Risks*.  
+[3] Crypto Market Research. (2025). *The Future of Decentralized Prediction Markets*.  
+[4] PolyAlpha Competitive Landscape Analysis. (2026). *Internal Project Data*.  
+[5] PolyAlpha Backtest Report. (2026). *Cash-flow PnL Simulation Results*.
