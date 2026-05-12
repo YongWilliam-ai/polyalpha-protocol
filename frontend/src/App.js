@@ -53,12 +53,12 @@ export default function App() {
       <footer className="text-center py-3 text-xs text-gray-600 border-t border-gray-800/50 font-mono">
         PolyAlpha v1.0 · ISOM3270 Final Project · William Yong, HKUST RMBI ·{" "}
         <a
-          href="https://amoy.polygonscan.com"
+          href="https://testnet.chainlab.fun"
           target="_blank"
           rel="noreferrer"
           className="text-accent hover:underline"
         >
-          Polygonscan Amoy
+          ChainLab Testnet Explorer
         </a>
       </footer>
     </div>

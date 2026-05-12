@@ -73,7 +73,7 @@ export default function PositionLogPage() {
       {/* On-chain audit explanation */}
       <div className="bg-blue-900/10 border border-blue-900/30 text-blue-200 p-4 rounded-lg text-sm mb-4">
         <strong>On-chain audit trail.</strong> Every signal the AI agent generates is logged immutably
-        via <code className="bg-blue-900/30 px-1 rounded">PositionLogged</code> events on Polygon Amoy.
+        via <code className="bg-blue-900/30 px-1 rounded">PositionLogged</code> events on ChainLab Testnet.
         The <code className="bg-blue-900/30 px-1 rounded">oracleInputHash</code> is SHA-256(btcOpen + btcNow + polyOdds + timestamp) —
         proving the agent's inputs were not manipulated after the fact.
         {lastBlock && (
@@ -158,7 +158,7 @@ export default function PositionLogPage() {
           <li><span className="font-mono text-white">Edge</span>: AI Prob − Market Price. Must be ≥8% for a signal to fire.</li>
           <li><span className="font-mono text-white">Kelly</span>: Quarter-Kelly position recommendation as % of TVL</li>
           <li><span className="font-mono text-white">Oracle Hash</span>: SHA-256(btcOpen, btcNow, polyOdds, timestamp) — tamper evidence on-chain</li>
-          <li><span className="font-mono text-white">Tx ↗</span>: Links to the immutable on-chain event on Polygonscan</li>
+          <li><span className="font-mono text-white">Tx ↗</span>: Links to the immutable on-chain event on ChainLab Testnet Explorer</li>
         </ul>
       </div>
     </div>

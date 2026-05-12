@@ -1,8 +1,6 @@
 # PolyAlpha Protocol — Project State Log
 
-> **用途**：這份文件是 William、Claude Code 和 Manus 三方的「共同記憶」。
-> 每次 Claude Code 完成一個任務後，Manus 會更新這份文件。
-> 每次給 Claude Code 新 Prompt 時，都會把這份文件的最新內容附在 Prompt 開頭。
+> **用途**：這份文件是 PolyAlpha Protocol 的專案狀態記錄，記錄所有已完成的功能、合約地址與技術規格。
 
 ---
 

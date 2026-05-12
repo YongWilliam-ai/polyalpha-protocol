@@ -63,3 +63,10 @@ agent/logs/*.txt
 
 # Local export files (should never be committed)
 local_files_export.csv
+
+# Internal working documents (planning, prompts, workflow notes — not for public)
+docs/internal/
+
+# Large binary presentation/document files
+*.pptx
+*.docx

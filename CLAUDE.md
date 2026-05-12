@@ -19,12 +19,9 @@ PolyAlpha Protocol is a Web3 + AI project combining:
 
 ## Collaboration Rules (CRITICAL)
 
-Three parties work on this project. You must understand your role:
-
 | Party | Role | What they do |
 |---|---|---|
-| **Claude Code (you)** | Smart Contract + Python Dev | Write/edit local files, run compile/test |
-| **Manus (another AI)** | Tech Lead + QA | Reviews GitHub, fixes bugs, builds frontend |
+| **Claude Code** | Smart Contract + Python Dev | Write/edit local files, run compile/test |
 | **William** | Project Owner | Runs `git push`, makes decisions, runs deploys |
 
 **After completing any task, ALWAYS tell William to run:**
