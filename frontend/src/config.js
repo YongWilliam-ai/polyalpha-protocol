@@ -20,11 +20,15 @@ export const VAULT_ABI = [
   "function totalAssets() view returns (uint256)",
   "function totalSupply() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
+  "function asset() view returns (address)",
   "function halted() view returns (bool)",
   "function currentDrawdownBps() view returns (uint256)",
   "function peakAssets() view returns (uint256)",
   "function deposit(uint256 assets, address receiver) returns (uint256)",
   "function withdraw(uint256 assets, address receiver, address owner) returns (uint256)",
+  "function redeem(uint256 shares, address receiver, address owner) returns (uint256)",
+  "function previewDeposit(uint256 assets) view returns (uint256)",
+  "function previewWithdraw(uint256 assets) view returns (uint256)",
   "event PositionLogged(address indexed agent, string marketQuestion, uint256 aiProbabilityBps, uint256 marketPriceBps, int256 edgeBps, string side, uint256 kellyFractionBps, bytes32 oracleInputHash, uint256 timestamp)",
 ];
 

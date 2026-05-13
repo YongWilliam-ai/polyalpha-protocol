@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
-import { VAULT_ADDRESS, VAULT_ABI, POLYGONSCAN_URL, CHAIN_ID, CHAIN_NAME, RPC_URL } from "../config";
+import { VAULT_ADDRESS, VAULT_ABI, POLYGONSCAN_URL, CHAIN_ID, CHAIN_NAME, RPC_URL, MOCK_USDC_ADDRESS, USDC_ABI as CONFIG_USDC_ABI } from "../config";
 import SocialFeed from "../components/SocialFeed";
 import { DataCard } from "../components/DataCard";
 
-const USDC_ABI = [
+const USDC_ABI = CONFIG_USDC_ABI || [
   "function balanceOf(address) view returns (uint256)",
   "function approve(address spender, uint256 amount) returns (bool)",
   "function allowance(address owner, address spender) view returns (uint256)",
+  "function decimals() view returns (uint8)",
 ];
 
 function useToast() {
@@ -143,14 +144,21 @@ export default function VaultPage() {
 
   const handleDeposit = async () => {
     if (!provider || !depositAmt) return;
-    if (demoMode) { show("Demo mode — connect to ChainLab Testnet for live transactions", "error"); return; }
+    // Allow transactions when wallet is connected, even if background RPC read failed (demoMode)
+    // demoMode only blocks when there's no wallet provider connected
     setLoading(true);
     setTxStatus("Approving USDC...");
     show("Approving USDC spend...", "info");
     try {
       const signer      = await provider.getSigner();
       const vault       = new ethers.Contract(VAULT_ADDRESS, VAULT_ABI, signer);
-      const usdcAddress = await vault.asset();
+      // Try vault.asset() first, fallback to MOCK_USDC_ADDRESS from config
+      let usdcAddress;
+      try {
+        usdcAddress = await vault.asset();
+      } catch {
+        usdcAddress = MOCK_USDC_ADDRESS;
+      }
       const usdc        = new ethers.Contract(usdcAddress, USDC_ABI, signer);
       const amount      = ethers.parseUnits(depositAmt, 6);
       await (await usdc.approve(VAULT_ADDRESS, amount)).wait();
@@ -169,7 +177,7 @@ export default function VaultPage() {
 
   const handleWithdraw = async () => {
     if (!provider || !withdrawAmt) return;
-    if (demoMode) { show("Demo mode — connect to ChainLab Testnet for live transactions", "error"); return; }
+    // Allow transactions when wallet is connected
     setLoading(true);
     setTxStatus("Withdrawing...");
     show("Sending withdrawal...", "info");
@@ -230,9 +238,14 @@ export default function VaultPage() {
             </p>
           </div>
 
-          {demoMode && (
+          {demoMode && !wallet && (
             <div className="bg-dark border border-yellow-700/30 text-yellow-400 p-3 font-mono text-xs mb-4">
-              <span className="font-bold">DEMO MODE</span> — Displaying simulated vault data. Connect to ChainLab Testnet for live on-chain data.
+              <span className="font-bold">DEMO MODE</span> — Displaying simulated vault data. Connect your wallet to interact with the live vault on ChainLab Testnet.
+            </div>
+          )}
+          {demoMode && wallet && (
+            <div className="bg-dark border border-blue-700/30 text-blue-400 p-3 font-mono text-xs mb-4">
+              <span className="font-bold">WALLET CONNECTED</span> — Stats shown are simulated (RPC read failed), but deposits and withdrawals will execute on-chain via MetaMask.
             </div>
           )}
 
