@@ -10,10 +10,10 @@ Three public entry points:
   get_mirofish_swarm_consensus(market_question, market_context) -> consensus dict
 
 Env vars (read from .env at project root):
-  LLM_API_KEY    -- API key (GLM-4 / OpenAI-compatible)
-  LLM_BASE_URL   -- base URL, e.g. https://open.bigmodel.cn/api/paas/v4/
-  LLM_MODEL_NAME -- model name, e.g. glm-4
-  ZEP_API_KEY    -- Zep Cloud API key
+  LLM_API_KEY    -- API key for B.ai unified bridge (routes to GLM-5.1 / Claude 4.6 / GPT-5.5)
+  LLM_BASE_URL   -- B.ai base URL (default: https://api.b.ai/v1) or Zhipu direct
+  LLM_MODEL_NAME -- model name via B.ai routing, e.g. glm-4-flash (high-vol), glm-5.1 (reasoning)
+  ZEP_API_KEY    -- Zep Cloud API key (CAMEL-OASIS memory layer)
 """
 
 import json
@@ -32,8 +32,15 @@ except ImportError:
 log = logging.getLogger("mirofish")
 
 LLM_API_KEY    = os.getenv("LLM_API_KEY", "")
+# B.ai unified bridge: routes to GLM-5.1, Claude 4.6 Sonnet, or GPT-5.5 based on model name
+# Fallback: Zhipu direct API for GLM-4-Flash (high-frequency, low-cost tasks)
 LLM_BASE_URL   = os.getenv("LLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/")
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "glm-4")
+# Default to glm-4-flash for cost efficiency; override via .env for specific personas
+# Persona routing (configured in .env or B.ai dashboard):
+#   DataDrivenDave, MomentumMike  -> glm-4-flash  ($0.06/1M tokens, high speed)
+#   RiskAverseRita, ContrarianCarl -> claude-4-6-sonnet (strong logical reasoning)
+#   TrendFollowerTina              -> gpt-5.5 (broad context synthesis)
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "glm-4-flash")
 ZEP_API_KEY    = os.getenv("ZEP_API_KEY", "")
 
 GAMMA_API = "https://gamma-api.polymarket.com"

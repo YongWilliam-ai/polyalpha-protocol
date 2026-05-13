@@ -19,7 +19,7 @@
 
 PolyAlpha Protocol is a decentralized finance (DeFi) application that combines an ERC-4626 smart contract vault, a rule-based AI trading agent powered by swarm intelligence, and a DAO governance model. The protocol is designed to capture yield from decentralized prediction markets by systematically exploiting structural pricing inefficiencies. It represents the convergence of three powerful paradigms — artificial intelligence, decentralized finance, and community governance — into a single, transparent, and auditable protocol.
 
-The system has been deployed on the Polygon Amoy Testnet (chainId: 80002) and is currently operating in paper trading mode. A live React dashboard is accessible at polyalpha-dashboard.vercel.app, providing real-time visibility into vault performance, AI trading signals, and swarm consensus. The source code is publicly available at github.com/YongWilliam-ai/polyalpha-protocol.
+The system has been deployed on the ChainLab Testnet (chainId: 31337) and is currently operating in paper trading mode. A live React dashboard is accessible at polyalpha-dashboard.vercel.app, providing real-time visibility into vault performance, AI trading signals, and swarm consensus. The source code is publicly available at github.com/YongWilliam-ai/polyalpha-protocol.
 
 ### 1.2 Problem Definition & Pain Point
 
@@ -96,13 +96,13 @@ Because PolyAlpha integrates multiple external platforms (Polymarket, B.ai, 6551
 
 ### 3.1 System Overview
 
-The PolyAlpha Protocol is divided into three modular, interoperable layers. The **On-Chain Layer** consists of six Solidity smart contracts deployed on the Polygon Amoy Testnet, providing the trust-minimized foundation for asset management, governance, and audit trails. The **Off-Chain Agent Layer** is a Python-based engine that handles data ingestion, signal generation, swarm validation, and trade execution, communicating with the on-chain layer via signed transactions. The **Frontend Layer** is a React + TailwindCSS application deployed on Vercel that provides a user-facing dashboard for deposits, withdrawals, and real-time monitoring.
+The PolyAlpha Protocol is divided into three modular, interoperable layers. The **On-Chain Layer** consists of six Solidity smart contracts deployed on the ChainLab Testnet, providing the trust-minimized foundation for asset management, governance, and audit trails. The **Off-Chain Agent Layer** is a Python-based engine that handles data ingestion, signal generation, swarm validation, and trade execution, communicating with the on-chain layer via signed transactions. The **Frontend Layer** is a React + TailwindCSS application deployed on Vercel that provides a user-facing dashboard for deposits, withdrawals, and real-time monitoring.
 
 ### 3.2 Data Design & AI Infrastructure Cost Analysis
 
 The system employs a hybrid data architecture that balances cost efficiency with transparency. Off-chain, the Python agent fetches real-time CLOB data from the Polymarket API, sentiment scores from the 6551Team daily-news API, and price feeds from Binance. On-chain, only the final trade decisions, asset management events (deposits/withdrawals), and performance metrics are logged. 
 
-Following the VoD (Video on Demand) methodology taught in ISOM3270, the decision of what to store on-chain versus off-chain is driven by strict cost-benefit analysis. The following table demonstrates the quantitative rationale for our hybrid architecture on Polygon Amoy:
+Following the VoD (Video on Demand) methodology taught in ISOM3270, the decision of what to store on-chain versus off-chain is driven by strict cost-benefit analysis. The following table demonstrates the quantitative rationale for our hybrid architecture on the ChainLab Testnet:
 
 | Data Component | Size | On-chain Cost (Polygon) | Off-chain Cost (AWS/Vercel) | Architectural Decision Rationale |
 |---|---|---|---|---|
@@ -115,15 +115,15 @@ Every oracle input is SHA-256 hashed and stored on-chain, providing tamper-resis
 
 #### 3.2.1 AI Model Connection Map & B.ai Integration
 
-To ensure maximum flexibility and avoid vendor lock-in, PolyAlpha utilizes **B.ai** as its foundational AI infrastructure layer. B.ai acts as a unified API bridge, allowing the agent to seamlessly route requests to multiple frontier models (GLM-4, GPT-4o, Claude 3.5) through a single endpoint. This architecture is crucial for the MiroFish Swarm, as different personas can be routed to different models based on cost-performance requirements.
+To ensure maximum flexibility and avoid vendor lock-in, PolyAlpha utilizes **B.ai** as its foundational AI infrastructure layer. B.ai acts as a unified API bridge, allowing the agent to seamlessly route requests to multiple frontier models (GLM-5.1, Claude Sonnet 4.6, GPT-5.5) through a single endpoint without code changes. This architecture is crucial for the MiroFish Swarm, as different personas can be routed to different models based on cost-performance requirements, and model versions can be upgraded via the B.ai dashboard as newer releases become available.
 
 **The AI Connection Map:**
 1. **Data Ingestion:** Polymarket Gamma API (CLOB data) + 6551Team API (News Sentiment) + Binance API (Price Feeds).
 2. **Routing Layer (B.ai):** Receives the aggregated data and routes prompts to the appropriate LLM based on the persona's requirements.
 3. **Execution Layer (MiroFish Swarm):** 
-   - *DataDrivenDave* & *MomentumMike* → Routed to **GLM-4-Flash** (High speed, low cost: $0.06/1M input tokens).
-   - *RiskAverseRita* & *ContrarianCarl* → Routed to **Claude 3.5 Haiku** (Strong logical reasoning).
-   - *TrendFollowerTina* → Routed to **GPT-4o-mini** (Broad context synthesis).
+   - *DataDrivenDave* & *MomentumMike* → Routed to **GLM-5.1** (High accuracy, $1.05/1M input tokens via OpenRouter).
+   - *RiskAverseRita* & *ContrarianCarl* → Routed to **Claude Sonnet 4.6** (Strong logical reasoning, $3.00/1M input tokens).
+   - *TrendFollowerTina* → Routed to **GPT-5.5** (Broad context synthesis, $5.00/1M input tokens).
 4. **Memory Layer:** CAMEL-OASIS (Zep Cloud) stores the reasoning history for each persona.
 
 #### 3.2.2 Comprehensive AI Cost Calculation
@@ -134,20 +134,21 @@ A critical advantage of PolyAlpha's architecture is its highly optimized operati
 
 | Service / Component | Provider | Usage Estimate | Cost per Unit | Monthly Cost |
 |---|---|---|---|---|
-| **Swarm Reasoning (High Vol)** | B.ai (GLM-4-Flash) | 15M Input / 3M Output tokens | $0.06 / $0.40 per 1M | ~$2.10 |
-| **Swarm Reasoning (Complex)** | B.ai (GPT-4o-mini) | 5M Input / 1M Output tokens | $0.15 / $0.60 per 1M | ~$1.35 |
+| **Swarm Reasoning (High Vol)** | B.ai → GLM-5.1 | 5M Input / 1M Output tokens | $1.05 / $3.50 per 1M | ~$8.75 |
+| **Swarm Reasoning (Analytical)** | B.ai → Claude Sonnet 4.6 | 2M Input / 0.5M Output tokens | $3.00 / $15.00 per 1M | ~$13.50 |
+| **Swarm Reasoning (Complex)** | B.ai → GPT-5.5 | 1M Input / 0.3M Output tokens | $5.00 / $30.00 per 1M | ~$14.00 |
 | **Market Data (CLOB)** | Polymarket Gamma API | 100,000 requests | Free Tier | $0.00 |
 | **News Sentiment** | 6551Team API | 10,000 requests | Free Tier | $0.00 |
 | **Agent Memory** | Zep Cloud (CAMEL) | 500 MB storage | Free Tier | $0.00 |
-| **On-Chain Gas Fees** | Polygon Amoy (Testnet) | 150 `logPosition` txs | ~$0.0003 per tx | ~$0.05 |
+| **On-Chain Gas Fees** | ChainLab (Testnet) | 150 `logPosition` txs | ~$0.0003 per tx | ~$0.05 |
 | **Hosting / Cron Jobs** | Vercel / AWS Lambda | 730 hours compute | Basic Tier | ~$5.00 |
-| **Total Estimated Monthly Cost** | | | | **~$8.50** |
+| **Total Estimated Monthly Cost** | | | | **~$41.30** |
 
-This exceptionally low operational cost (approximately USD 8.50 per month) means the protocol reaches profitability at a very low TVL threshold. For context, at just USD 10,000 TVL, the 0.5% management fee (USD 50/year) covers nearly half the base infrastructure cost, with performance fees easily covering the rest.
+The monthly operational cost of approximately USD 41.30 reflects the use of frontier 2026 AI models (GLM-5.1, Claude Sonnet 4.6, GPT-5.5) rather than the older, cheaper models used in earlier estimates. This cost remains highly manageable: at USD 10,000 TVL, the 0.5% management fee (USD 50/year) plus a single profitable trade's 20% performance fee easily covers the infrastructure cost. At USD 1M TVL, the USD 42,400 annual revenue represents a **1,025x revenue-to-cost ratio**, demonstrating the protocol's exceptional operational leverage. Furthermore, because B.ai routes all requests through a single endpoint, the team can downgrade to more cost-effective models (e.g., GLM-5.1 Flash at $0.14/1M tokens) via the dashboard if cost optimization is needed, without any code changes.
 
 ### 3.3 Smart Contract Functions
 
-Six smart contracts form the on-chain backbone of the protocol, all compiled with Solidity `^0.8.20` and the Cancun EVM version:
+Six smart contracts form the on-chain backbone of the protocol, all compiled with Solidity `0.8.25` and the Cancun EVM version:
 
 | Contract | Function | Standard |
 |---|---|---|
@@ -157,6 +158,8 @@ Six smart contracts form the on-chain backbone of the protocol, all compiled wit
 | `PolyAlphaDAO.sol` | DAO voting and proposal execution | OpenZeppelin |
 | `ALPHAStakingPool.sol` | Yield distribution for staked tokens | Custom |
 
+*Note: A sixth contract, `MockUSDC.sol`, is deployed as a test collateral token for the testnet environment. On mainnet, this will be replaced by the native USDC contract (0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174).*
+
 The `PolyAlphaVault.sol` contract is the core of the system. It implements the ERC-4626 tokenized vault standard, allowing users to deposit USDC and receive PALPHA shares proportional to their contribution. The vault enforces a 20% performance fee and a 0.5% annual management fee, both of which are collected programmatically. 
 
 To demonstrate the on-chain transparency mechanism, the following is the actual `logPosition()` function signature from `PolyAlphaVault.sol` that records every AI trade decision:
@@ -164,24 +167,21 @@ To demonstrate the on-chain transparency mechanism, the following is the actual 
 ```solidity
 // From PolyAlphaVault.sol
 function logPosition(
-    string memory marketQuestion,
+    string calldata marketQuestion,
     uint256 aiProbabilityBps,
     uint256 marketPriceBps,
-    int256 edgeBps,
-    bool isLong,
+    string  calldata side,
     uint256 kellyFractionBps,
     bytes32 oracleInputHash
-) external onlyAgent {
-    require(bytes(marketQuestion).length > 0, "Empty question");
-    require(aiProbabilityBps <= 10000, "Invalid probability");
-    require(marketPriceBps <= 10000, "Invalid market price");
-    
+) external onlyAgent notHalted {
+    int256 edgeBps = int256(aiProbabilityBps) - int256(marketPriceBps);
     emit PositionLogged(
+        msg.sender,
         marketQuestion,
         aiProbabilityBps,
         marketPriceBps,
         edgeBps,
-        isLong,
+        side,
         kellyFractionBps,
         oracleInputHash,
         block.timestamp
@@ -206,7 +206,7 @@ Security is enforced through a multi-layered approach. The primary mechanism is 
 
 The six open-source integrations are not peripheral features; they are the core of the protocol's competitive moat. Each integration addresses a specific technical challenge:
 
-**MiroFish Swarm AI (666ghj/MiroFish):** Implements a multi-agent consensus mechanism where five AI personas — ContrarianCarl, TrendFollowerTina, MomentumMike, RiskAverseRita, and DataDrivenDave — vote independently on each trade. A minimum 60% consensus threshold is required before any trade is executed, dramatically reducing false positives. This is implemented in `agent/mirofish_integration.py` using GLM-4 and Zep Cloud memory for persona persistence.
+**MiroFish Swarm AI (666ghj/MiroFish):** Implements a multi-agent consensus mechanism where five AI personas — ContrarianCarl, TrendFollowerTina, MomentumMike, RiskAverseRita, and DataDrivenDave — vote independently on each trade. A minimum 60% consensus threshold is required before any trade is executed, dramatically reducing false positives. This is implemented in `agent/mirofish_integration.py` using B.ai-routed LLMs (GLM-5.1, Claude 4.6 Sonnet, GPT-5.5) and Zep Cloud memory for persona persistence. Model versions are configured via environment variables and updated via the B.ai dashboard without code changes.
 
 **polymarket-toolkit (runesleo):** Provides real-time CLOB data fetching with exponential backoff retry logic and cash-flow PnL calculation. This integration ensures the agent always has accurate, up-to-date market data and uses a rigorous PnL accounting model that avoids the common pitfall of using the platform's native PnL calculation. Implemented in `agent/pm_toolkit_python.py`.
 
