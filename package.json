@@ -7,6 +7,8 @@
     "test": "hardhat test",
     "deploy:amoy": "hardhat run scripts/deploy.js --network amoy",
     "deploy:chainlab": "hardhat run scripts/deploy.js --network chainlab",
+    "mint:usdc": "hardhat run scripts/mint-usdc.js --network chainlab",
+    "mint:usdc:amoy": "hardhat run scripts/mint-usdc.js --network amoy",
     "deploy:local": "hardhat run scripts/deploy.js --network hardhat",
     "verify": "hardhat verify --network amoy",
     "node": "hardhat node",
