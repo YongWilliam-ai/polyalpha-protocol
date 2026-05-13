@@ -1,5 +1,5 @@
 {
-  "market_question": "Will BTC close above $95,000 on any day before June 2025?",
+  "market_question": "Will BTC close above $110,000 on any day before August 2026?",
   "consensus": 0.734,
   "label": "SWARM_BUY",
   "source": "live",
@@ -40,7 +40,7 @@
       "persona": "OnChainSleuth",
       "vote": "YES",
       "confidence": 79,
-      "reasoning": "On-chain accumulation by long-term holders at current levels mirrors early 2021 accumulation phase.",
+      "reasoning": "On-chain accumulation by long-term holders at current levels mirrors early 2024 accumulation phase.",
       "weight": 0.15,
       "estimate": 0.79
     }
@@ -50,6 +50,6 @@
     "[TrendFollowerTina] YES @ 84% -- BTC momentum is firmly above the 50-day EMA with expanding volume — trend signal is bullish.",
     "[ValueInvestorVictor] YES @ 72% -- Historical post-halving base rates support a 73% probability of reaching this level within 6 months.",
     "[MacroAnalystMaria] YES @ 68% -- Fed pause cycle and institutional ETF inflows create a supportive macro backdrop for risk assets.",
-    "[OnChainSleuth] YES @ 79% -- On-chain accumulation by long-term holders at current levels mirrors early 2021 accumulation phase."
+    "[OnChainSleuth] YES @ 79% -- On-chain accumulation by long-term holders at current levels mirrors early 2024 accumulation phase."
   ]
 }

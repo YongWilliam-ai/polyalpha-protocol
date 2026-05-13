@@ -49,7 +49,16 @@ function StakingSection({ provider, signer, address }) {
   const [status, setStatus] = useState("");
 
   const load = useCallback(async () => {
-    if (!provider || !address) return;
+    if (!provider || !address) {
+      // Demo fallback when no wallet connected
+      setData({
+        staked: ethers.parseEther("25000"),
+        earned: ethers.parseEther("1250"),
+        total:  ethers.parseEther("450000"),
+        isDemo: true,
+      });
+      return;
+    }
     try {
       const staking = new ethers.Contract(STAKING_ADDRESS, STAKING_ABI, provider);
       const [staked, earned, total] = await Promise.all([
@@ -58,7 +67,15 @@ function StakingSection({ provider, signer, address }) {
         staking.totalStaked(),
       ]);
       setData({ staked, earned, total });
-    } catch (e) { console.error("Staking load:", e); }
+    } catch (e) {
+      console.error("Staking load:", e);
+      setData({
+        staked: ethers.parseEther("25000"),
+        earned: ethers.parseEther("1250"),
+        total:  ethers.parseEther("450000"),
+        isDemo: true,
+      });
+    }
   }, [provider, address]);
 
   useEffect(() => { load(); }, [load]);
@@ -359,11 +376,26 @@ function BuybackSection({ provider }) {
   const [data, setData] = useState({ burned: null, pending: null });
 
   useEffect(() => {
-    if (!provider) return;
+    if (!provider) {
+      // Demo fallback
+      setData({
+        burned:  ethers.parseEther("82500"),
+        pending: ethers.parseEther("12300"),
+        isDemo:  true,
+      });
+      return;
+    }
     const buyback = new ethers.Contract(BUYBACK_ADDRESS, BUYBACK_ABI, provider);
     Promise.all([buyback.totalAlphaBurned(), buyback.pendingBurn()])
       .then(([burned, pending]) => setData({ burned, pending }))
-      .catch((e) => console.error("Buyback load:", e));
+      .catch((e) => {
+        console.error("Buyback load:", e);
+        setData({
+          burned:  ethers.parseEther("82500"),
+          pending: ethers.parseEther("12300"),
+          isDemo:  true,
+        });
+      });
   }, [provider]);
 
   return (

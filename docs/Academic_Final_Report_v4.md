@@ -77,7 +77,18 @@ The second is **community bootstrapping**: the PALPHA token's early depositor re
 
 The third is **institutional credibility**: the 0.5/20 fee structure, Sharpe ratio of 2.53, and rigorous walk-forward validation methodology signal to sophisticated investors that this is a serious protocol, not a speculative experiment.
 
-**Risk Acknowledgment:** As with any DeFi protocol, PolyAlpha faces several risks. Regulatory risk exists regarding the classification of prediction markets in various jurisdictions. Smart contract risk is inherent, though mitigated by OpenZeppelin standards and planned audits. Finally, prediction market liquidity risk means the strategy's capacity is constrained by the depth of the underlying Polymarket order books.
+	### 2.5 Critical Dependencies & Contingency Plans (Plan B)
+	
+	To ensure protocol resilience, we have identified three critical factors that could make or break the entire solution, along with explicit backup arrangements (Plan B):
+	
+	1. **Polymarket CLOB API Availability (External Dependency):** The system relies on Polymarket's Gamma API for real-time order book data. If Polymarket restricts API access or changes its terms of service, the agent would be blinded. 
+	   * **Plan B:** The agent architecture is modular. We would immediately switch the data ingestion layer to the Kalshi API or utilize Azuro's on-chain data feeds, which provide similar prediction market liquidity.
+	2. **Persistence of Favorite-Longshot Bias (Incentive Assumption):** The core edge relies on retail traders continuing to misprice probabilities. If the market becomes perfectly efficient due to institutional participation, the 62.9% win rate would degrade.
+	   * **Plan B:** The AI agent's rule engine would be hot-swapped via DAO governance to execute a "Volatility Arbitrage" strategy (capturing spread during high-news-impact events) rather than directional momentum, utilizing the same underlying smart contracts.
+	3. **GLM-4 API Stability (Technical Dependency):** The MiroFish Swarm relies on the GLM-4 API for persona reasoning. An extended outage would halt trading.
+	   * **Plan B:** The system includes a fallback mechanism to route prompts to a locally hosted Llama-3.1-8B model, ensuring the swarm can continue operating, albeit with potentially higher latency.
+	
+	**General Risk Acknowledgment:** Beyond these critical dependencies, PolyAlpha faces regulatory risk regarding the classification of prediction markets in various jurisdictions, and smart contract risk, which is mitigated by OpenZeppelin standards and planned audits.
 
 ---
 
@@ -238,14 +249,16 @@ The token distribution is designed to balance community ownership with team ince
 
 Crucially, the team allocation includes a 6-month cliff followed by an 18-month linear vesting schedule. This prevents the team from selling tokens immediately upon launch and strongly aligns their incentives with the long-term success and TVL growth of the protocol.
 
-### 4.5 Alignment with Business Strategy
-
-The tokenomics design is not merely a set of disconnected features; it forms a strategic narrative that drives protocol growth. The sequence operates as follows:
-
-1. **Bootstrap Phase:** The Early Access toll creates initial demand for PALPHA, while the Community allocation funds the 10% staking yield, attracting the first cohort of depositors and solving the cold-start problem.
-2. **Growth Phase:** As TVL grows, the AI agent generates alpha, producing performance fees. The Fee Discount utility incentivizes large depositors to buy and hold PALPHA rather than selling it.
-3. **Sustainability Phase:** 30% of the growing protocol revenue is directed to the buyback-and-burn mechanism. This constant buying pressure, combined with the decreasing supply, creates a sustainable value accrual mechanism.
-4. **Decentralization Phase:** As the token is distributed, governance transitions from the founding team to the DAO, ensuring the protocol can adapt to changing market conditions without relying on a centralized administrator.
+	### 4.5 Alignment with Business Strategy & GTM
+	
+	The tokenomics design is tightly aligned with the Go-to-Market (GTM) strategy outlined in Section 2.4. The following table demonstrates how each phase of the strategic roadmap integrates GTM pillars with tokenomic incentives:
+	
+	| Roadmap Phase | GTM Pillar Focus | Tokenomics Mechanism | Expected Outcome |
+	|---|---|---|---|
+	| **1. Bootstrap** | Community Bootstrapping | Early Access Toll + 10% Staking Yield (funded by Community allocation) | Solves cold-start problem; attracts first $1M TVL. |
+	| **2. Growth** | Institutional Credibility | Fee Discounts (20% → 5%) for large PALPHA holders | Incentivizes whales to buy/hold PALPHA, driving token demand. |
+	| **3. Sustainability** | Trust through Transparency | 30% Revenue Buyback-and-Burn | Creates deflationary pressure; aligns team/user incentives. |
+	| **4. Decentralization** | Community Ownership | DAO Governance transition | Protocol becomes self-sustaining without centralized control. |
 
 ---
 

@@ -51,7 +51,7 @@ export default function App() {
       </main>
 
       <footer className="text-center py-3 text-xs text-gray-600 border-t border-gray-800/50 font-mono">
-        PolyAlpha v1.0 · ISOM3270 Final Project · William Yong, HKUST RMBI ·{" "}
+        PolyAlpha v2.0 · ISOM3270 Final Project · William Yong, HKUST RMBI ·{" "}
         <a
           href="https://testnet.chainlab.fun"
           target="_blank"

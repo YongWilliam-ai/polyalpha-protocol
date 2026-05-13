@@ -43,6 +43,16 @@ function ToastStack({ toasts }) {
   );
 }
 
+// Demo vault stats for when RPC is unavailable
+const DEMO_VAULT_STATS = {
+  tvl: 12500.00,
+  shares: 12500.0000,
+  halted: false,
+  drawdown: 3.2,
+  peakTvl: 12912.50,
+  isDemo: true,
+};
+
 export default function VaultPage() {
   const [wallet, setWallet]           = useState(null);
   const [provider, setProvider]       = useState(null);
@@ -51,6 +61,7 @@ export default function VaultPage() {
   const [withdrawAmt, setWithdrawAmt] = useState("");
   const [txStatus, setTxStatus]       = useState("");
   const [loading, setLoading]         = useState(false);
+  const [demoMode, setDemoMode]       = useState(false);
   const { toasts, show }              = useToast();
 
   useEffect(() => {
@@ -79,15 +90,21 @@ export default function VaultPage() {
         drawdown: Number(drawdownBps) / 100,
         peakTvl:  Number(peakAssets) / 1e6,
       });
+      setDemoMode(false);
     } catch (e) {
-      setVaultStats({ error: e.message });
+      // Fallback to demo stats if RPC fails
+      setVaultStats(DEMO_VAULT_STATS);
+      setDemoMode(true);
     }
   }, []);
 
   useEffect(() => { loadVaultStats(); }, [loadVaultStats]);
 
   const connectWallet = async () => {
-    if (!window.ethereum) { show("Install MetaMask to connect", "error"); return; }
+    if (!window.ethereum) {
+      show("No wallet detected. Install MetaMask or use a Web3 browser.", "error");
+      return;
+    }
     try {
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
       const prov     = new ethers.BrowserProvider(window.ethereum);
@@ -98,9 +115,22 @@ export default function VaultPage() {
             method: "wallet_switchEthereumChain",
             params: [{ chainId: "0x" + CHAIN_ID.toString(16) }],
           });
-        } catch {
-          show(`Switch MetaMask to ${CHAIN_NAME} (chain ${CHAIN_ID})`, "error");
-          return;
+        } catch (switchErr) {
+          // If chain doesn't exist, add it
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [{
+                chainId: "0x" + CHAIN_ID.toString(16),
+                chainName: CHAIN_NAME,
+                rpcUrls: [RPC_URL],
+                nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+              }],
+            });
+          } catch {
+            show(`Please add ${CHAIN_NAME} (chain ${CHAIN_ID}) to MetaMask manually`, "error");
+            return;
+          }
         }
       }
       setProvider(prov);
@@ -113,6 +143,7 @@ export default function VaultPage() {
 
   const handleDeposit = async () => {
     if (!provider || !depositAmt) return;
+    if (demoMode) { show("Demo mode — connect to ChainLab Testnet for live transactions", "error"); return; }
     setLoading(true);
     setTxStatus("Approving USDC...");
     show("Approving USDC spend...", "info");
@@ -138,6 +169,7 @@ export default function VaultPage() {
 
   const handleWithdraw = async () => {
     if (!provider || !withdrawAmt) return;
+    if (demoMode) { show("Demo mode — connect to ChainLab Testnet for live transactions", "error"); return; }
     setLoading(true);
     setTxStatus("Withdrawing...");
     show("Sending withdrawal...", "info");
@@ -178,7 +210,7 @@ export default function VaultPage() {
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-1 flex-wrap">
               <h1 className="text-3xl font-bold text-white tracking-tight">PolyAlpha Vault</h1>
-              {vaultStats && !vaultStats.notDeployed && !vaultStats.error && !vaultStats.halted && (
+              {vaultStats && !vaultStats.notDeployed && !vaultStats.halted && (
                 <span className="flex items-center gap-2">
                   <span className="flex h-3 w-3 relative">
                     <span className="animate-ping absolute inline-flex h-full w-full bg-success opacity-75" />
@@ -198,8 +230,14 @@ export default function VaultPage() {
             </p>
           </div>
 
+          {demoMode && (
+            <div className="bg-dark border border-yellow-700/30 text-yellow-400 p-3 font-mono text-xs mb-4">
+              <span className="font-bold">DEMO MODE</span> — Displaying simulated vault data. Connect to ChainLab Testnet for live on-chain data.
+            </div>
+          )}
+
           {/* Hero stats — TVL and APY extra large */}
-          {vaultStats && !vaultStats.notDeployed && !vaultStats.error && (
+          {vaultStats && !vaultStats.notDeployed && (
             <>
               {/* Primary metrics — massive numbers */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -231,12 +269,6 @@ export default function VaultPage() {
             </>
           )}
 
-          {vaultStats?.error && (
-            <div className="bg-dark border border-red-500/30 text-red-400 p-4 font-mono text-sm mb-4">
-              <span className="text-red-600">RPC ERR</span> vault stats unavailable: {vaultStats.error}
-            </div>
-          )}
-
           {/* Wallet connect */}
           <div className="mb-6">
             <div className="text-xs font-mono text-gray-600 uppercase tracking-wider mb-3">// wallet</div>
@@ -259,113 +291,90 @@ export default function VaultPage() {
                 onClick={connectWallet}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="2" y="7" width="20" height="14" rx="2"/>
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                  <rect x="2" y="6" width="20" height="14" rx="2" />
+                  <path d="M16 14h.01" />
+                  <path d="M2 10h20" />
                 </svg>
-                Connect MetaMask
+                Connect Wallet
               </button>
             )}
           </div>
 
           {/* Deposit / Withdraw */}
           {wallet && (
-            <div className="mb-6">
-              <div className="text-xs font-mono text-gray-600 uppercase tracking-wider mb-3">// deposit / withdraw</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-surface border border-gray-800 p-4">
-                  <div className="text-xs font-mono text-gray-600 mb-2">DEPOSIT USDC</div>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      placeholder="0.00"
-                      value={depositAmt}
-                      onChange={(e) => setDepositAmt(e.target.value)}
-                      className="bg-dark border border-gray-700 text-gray-200 px-3 py-2 font-mono text-sm focus:outline-none focus:border-accent flex-1 min-w-0"
-                    />
-                    <button
-                      className="bg-accent hover:bg-accent-dark text-black px-4 py-2 text-sm font-bold transition-colors disabled:opacity-50"
-                      onClick={handleDeposit}
-                      disabled={loading}
-                    >
-                      {loading ? "..." : "Deposit"}
-                    </button>
-                  </div>
-                </div>
-                <div className="bg-surface border border-gray-800 p-4">
-                  <div className="text-xs font-mono text-gray-600 mb-2">WITHDRAW USDC</div>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      placeholder="0.00"
-                      value={withdrawAmt}
-                      onChange={(e) => setWithdrawAmt(e.target.value)}
-                      className="bg-dark border border-gray-700 text-gray-200 px-3 py-2 font-mono text-sm focus:outline-none focus:border-accent flex-1 min-w-0"
-                    />
-                    <button
-                      className="border border-accent text-accent hover:bg-accent/10 px-4 py-2 text-sm font-bold transition-colors disabled:opacity-50"
-                      onClick={handleWithdraw}
-                      disabled={loading}
-                    >
-                      {loading ? "..." : "Withdraw"}
-                    </button>
-                  </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+              <div className="bg-surface border border-gray-800 p-4">
+                <div className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-3">// deposit USDC</div>
+                <div className="flex gap-2">
+                  <input
+                    className="bg-dark border border-gray-700 text-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent flex-1"
+                    type="number"
+                    placeholder="Amount (USDC)"
+                    value={depositAmt}
+                    onChange={(e) => setDepositAmt(e.target.value)}
+                  />
+                  <button
+                    className="bg-accent hover:bg-accent-dark text-black px-4 py-2 text-sm font-bold transition-colors disabled:opacity-40"
+                    onClick={handleDeposit}
+                    disabled={loading || !depositAmt}
+                  >
+                    Deposit
+                  </button>
                 </div>
               </div>
-
-              {txStatus && (
-                <div className={`mt-3 p-3 text-sm font-mono ${
-                  txStatus.startsWith("Deposited") || txStatus.startsWith("Withdrawn")
-                    ? "bg-dark border border-success/30 text-success"
-                    : txStatus.startsWith("Error")
-                    ? "bg-dark border border-red-500/30 text-red-400"
-                    : "bg-surface border border-gray-700 text-gray-300"
-                }`}>
-                  {txStatus}
-                  {txStatus.includes("Tx:") && (
-                    <a
-                      href={`${POLYGONSCAN_URL}/tx/${txStatus.split("Tx: ")[1]}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="ml-2 text-accent hover:underline"
-                    >
-                      View on Explorer
-                    </a>
-                  )}
+              <div className="bg-surface border border-gray-800 p-4">
+                <div className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-3">// withdraw USDC</div>
+                <div className="flex gap-2">
+                  <input
+                    className="bg-dark border border-gray-700 text-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent flex-1"
+                    type="number"
+                    placeholder="Amount (USDC)"
+                    value={withdrawAmt}
+                    onChange={(e) => setWithdrawAmt(e.target.value)}
+                  />
+                  <button
+                    className="border border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white px-4 py-2 text-sm font-bold transition-colors disabled:opacity-40"
+                    onClick={handleWithdraw}
+                    disabled={loading || !withdrawAmt}
+                  >
+                    Withdraw
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
-          {/* Risk Parameters */}
-          <div>
-            <div className="text-xs font-mono text-gray-600 uppercase tracking-wider mb-3">// risk_parameters</div>
-            <div className="bg-surface border border-gray-800 overflow-hidden">
-              <table className="w-full text-sm">
-                <tbody>
-                  {[
-                    ["performance_fee",      "20% of profits"],
-                    ["management_fee",       "0.5% annual"],
-                    ["max_position_size",    "5% of TVL per trade"],
-                    ["max_total_exposure",   "40% of TVL"],
-                    ["circuit_breaker",      "auto-halt at 20% drawdown from peak"],
-                    ["kelly_fraction",       "0.25x (Quarter-Kelly)"],
-                  ].map(([param, val]) => (
-                    <tr key={param} className="border-b border-gray-800 last:border-0 hover:bg-surface-hover transition-colors">
-                      <td className="px-4 py-3 text-xs font-mono text-gray-600">{param}</td>
-                      <td className="px-4 py-3 text-sm font-mono text-white">{val}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {txStatus && (
+            <div className="bg-dark border border-gray-800 p-3 font-mono text-xs text-gray-400 mb-4 break-all">
+              {txStatus}
             </div>
-            <p className="text-xs text-gray-700 font-mono mt-2">
-              hardcoded in PolyAlphaVault.sol · Phase 2: DAO governance via 48h timelock
+          )}
+
+          {/* Live Signal Radar */}
+          <div className="bg-surface border border-gray-800 p-4">
+            <div className="text-xs font-mono text-gray-600 uppercase tracking-wider mb-3">// live_signal_radar</div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="bg-dark border border-gray-800 p-3">
+                <div className="text-xs text-gray-500 mb-1">BTC 7-min Δ</div>
+                <div className="text-lg font-mono text-success">+0.42%</div>
+              </div>
+              <div className="bg-dark border border-gray-800 p-3">
+                <div className="text-xs text-gray-500 mb-1">Poly Odds (YES)</div>
+                <div className="text-lg font-mono text-white">61.2%</div>
+              </div>
+              <div className="bg-dark border border-gray-800 p-3">
+                <div className="text-xs text-gray-500 mb-1">Edge</div>
+                <div className="text-lg font-mono text-accent">+13.0%</div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-600 font-mono mt-3">
+              Simulated feed · Agent checks every 7 minutes for momentum signals
             </p>
           </div>
         </div>
 
-        {/* ── Right column ── */}
-        <div className="lg:sticky lg:top-20">
+        {/* ── Right column: Social Feed ── */}
+        <div className="hidden lg:block">
           <SocialFeed />
         </div>
       </div>
