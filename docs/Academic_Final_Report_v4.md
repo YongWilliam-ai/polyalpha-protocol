@@ -77,18 +77,18 @@ The second is **community bootstrapping**: the PALPHA token's early depositor re
 
 The third is **institutional credibility**: the 0.5/20 fee structure, Sharpe ratio of 2.53, and rigorous walk-forward validation methodology signal to sophisticated investors that this is a serious protocol, not a speculative experiment.
 
-	### 2.5 Critical Dependencies & Contingency Plans (Plan B)
-	
-	To ensure protocol resilience, we have identified three critical factors that could make or break the entire solution, along with explicit backup arrangements (Plan B):
-	
-	1. **Polymarket CLOB API Availability (External Dependency):** The system relies on Polymarket's Gamma API for real-time order book data. If Polymarket restricts API access or changes its terms of service, the agent would be blinded. 
-	   * **Plan B:** The agent architecture is modular. We would immediately switch the data ingestion layer to the Kalshi API or utilize Azuro's on-chain data feeds, which provide similar prediction market liquidity.
-	2. **Persistence of Favorite-Longshot Bias (Incentive Assumption):** The core edge relies on retail traders continuing to misprice probabilities. If the market becomes perfectly efficient due to institutional participation, the 62.9% win rate would degrade.
-	   * **Plan B:** The AI agent's rule engine would be hot-swapped via DAO governance to execute a "Volatility Arbitrage" strategy (capturing spread during high-news-impact events) rather than directional momentum, utilizing the same underlying smart contracts.
-	3. **GLM-4 API Stability (Technical Dependency):** The MiroFish Swarm relies on the GLM-4 API for persona reasoning. An extended outage would halt trading.
-	   * **Plan B:** The system includes a fallback mechanism to route prompts to a locally hosted Llama-3.1-8B model, ensuring the swarm can continue operating, albeit with potentially higher latency.
-	
-	**General Risk Acknowledgment:** Beyond these critical dependencies, PolyAlpha faces regulatory risk regarding the classification of prediction markets in various jurisdictions, and smart contract risk, which is mitigated by OpenZeppelin standards and planned audits.
+### 2.5 Critical Dependencies & Contingency Plans (Plan B)
+
+Because PolyAlpha integrates multiple external platforms (Polymarket, B.ai, 6551Team, Zep Cloud), the system faces significant **scarcity and single-point-of-failure risks**. If any of these external bridges break, the entire automated pipeline could halt. To ensure protocol resilience, we have identified the critical factors that could make or break the solution, along with explicit, hardcoded backup arrangements (Plan B):
+
+1. **Polymarket CLOB API Availability (Data Scarcity Risk):** The system relies heavily on Polymarket's Gamma API for real-time order book data. If Polymarket restricts API access, implements prohibitive rate limits, or changes its terms of service, the agent would be blinded. 
+   * **Plan B:** The data ingestion layer is abstracted. If Polymarket fails, the system automatically falls back to the **Kalshi API** (for US-regulated event contracts) or **Azuro's on-chain data feeds** (for decentralized sports/event liquidity).
+2. **B.ai & LLM Provider Stability (Compute Scarcity Risk):** The MiroFish Swarm relies on the B.ai platform to route prompts to GLM-4 and GPT-4o-mini. An extended outage at B.ai or OpenAI/Zhipu would halt the swarm's consensus mechanism.
+   * **Plan B:** Because we use B.ai as a unified bridge rather than hardcoding specific provider APIs, we can instantly swap underlying models (e.g., switching from GLM-4 to Claude 3.5) via the B.ai dashboard without changing our Python code. If B.ai itself goes down, the agent contains a hardcoded fallback to a **locally hosted Llama-3.1-8B model**, ensuring trading can continue autonomously.
+3. **Persistence of Favorite-Longshot Bias (Incentive Assumption Risk):** The core mathematical edge relies on retail traders continuing to misprice probabilities. If the market becomes perfectly efficient due to institutional participation, the 62.9% win rate would degrade.
+   * **Plan B:** The AI agent's rule engine is modular. If the primary edge decays, the DAO can vote to hot-swap the strategy module to execute a **"Volatility Arbitrage" strategy** (capturing bid-ask spreads during high-news-impact events) rather than directional momentum, utilizing the exact same underlying ERC-4626 smart contracts.
+
+**General Risk Acknowledgment:** Beyond these critical dependencies, PolyAlpha faces regulatory risk regarding the classification of prediction markets in various jurisdictions, and smart contract risk, which is mitigated by OpenZeppelin standards and planned audits.
 
 ---
 
@@ -98,7 +98,7 @@ The third is **institutional credibility**: the 0.5/20 fee structure, Sharpe rat
 
 The PolyAlpha Protocol is divided into three modular, interoperable layers. The **On-Chain Layer** consists of six Solidity smart contracts deployed on the Polygon Amoy Testnet, providing the trust-minimized foundation for asset management, governance, and audit trails. The **Off-Chain Agent Layer** is a Python-based engine that handles data ingestion, signal generation, swarm validation, and trade execution, communicating with the on-chain layer via signed transactions. The **Frontend Layer** is a React + TailwindCSS application deployed on Vercel that provides a user-facing dashboard for deposits, withdrawals, and real-time monitoring.
 
-### 3.2 Data Design (On-Chain vs Off-Chain Cost Analysis)
+### 3.2 Data Design & AI Infrastructure Cost Analysis
 
 The system employs a hybrid data architecture that balances cost efficiency with transparency. Off-chain, the Python agent fetches real-time CLOB data from the Polymarket API, sentiment scores from the 6551Team daily-news API, and price feeds from Binance. On-chain, only the final trade decisions, asset management events (deposits/withdrawals), and performance metrics are logged. 
 
@@ -112,6 +112,38 @@ Following the VoD (Video on Demand) methodology taught in ISOM3270, the decision
 | Real-time CLOB data | ~5 MB/day | Prohibitive | $0.05 / day | **Off-chain**: Too large and fast-moving for blockchain consensus |
 
 Every oracle input is SHA-256 hashed and stored on-chain, providing tamper-resistant proof of the data used for each trading decision without incurring the prohibitive gas costs of storing the full 50 KB reasoning log.
+
+#### 3.2.1 AI Model Connection Map & B.ai Integration
+
+To ensure maximum flexibility and avoid vendor lock-in, PolyAlpha utilizes **B.ai** as its foundational AI infrastructure layer. B.ai acts as a unified API bridge, allowing the agent to seamlessly route requests to multiple frontier models (GLM-4, GPT-4o, Claude 3.5) through a single endpoint. This architecture is crucial for the MiroFish Swarm, as different personas can be routed to different models based on cost-performance requirements.
+
+**The AI Connection Map:**
+1. **Data Ingestion:** Polymarket Gamma API (CLOB data) + 6551Team API (News Sentiment) + Binance API (Price Feeds).
+2. **Routing Layer (B.ai):** Receives the aggregated data and routes prompts to the appropriate LLM based on the persona's requirements.
+3. **Execution Layer (MiroFish Swarm):** 
+   - *DataDrivenDave* & *MomentumMike* → Routed to **GLM-4-Flash** (High speed, low cost: $0.06/1M input tokens).
+   - *RiskAverseRita* & *ContrarianCarl* → Routed to **Claude 3.5 Haiku** (Strong logical reasoning).
+   - *TrendFollowerTina* → Routed to **GPT-4o-mini** (Broad context synthesis).
+4. **Memory Layer:** CAMEL-OASIS (Zep Cloud) stores the reasoning history for each persona.
+
+#### 3.2.2 Comprehensive AI Cost Calculation
+
+A critical advantage of PolyAlpha's architecture is its highly optimized operational cost. By utilizing B.ai's unified routing and selecting cost-effective models like GLM-4-Flash for high-frequency tasks, the protocol achieves institutional-grade AI reasoning at retail-accessible prices.
+
+**Monthly Operational Cost Breakdown (Assuming 150 trades/month):**
+
+| Service / Component | Provider | Usage Estimate | Cost per Unit | Monthly Cost |
+|---|---|---|---|---|
+| **Swarm Reasoning (High Vol)** | B.ai (GLM-4-Flash) | 15M Input / 3M Output tokens | $0.06 / $0.40 per 1M | ~$2.10 |
+| **Swarm Reasoning (Complex)** | B.ai (GPT-4o-mini) | 5M Input / 1M Output tokens | $0.15 / $0.60 per 1M | ~$1.35 |
+| **Market Data (CLOB)** | Polymarket Gamma API | 100,000 requests | Free Tier | $0.00 |
+| **News Sentiment** | 6551Team API | 10,000 requests | Free Tier | $0.00 |
+| **Agent Memory** | Zep Cloud (CAMEL) | 500 MB storage | Free Tier | $0.00 |
+| **On-Chain Gas Fees** | Polygon Amoy (Testnet) | 150 `logPosition` txs | ~$0.0003 per tx | ~$0.05 |
+| **Hosting / Cron Jobs** | Vercel / AWS Lambda | 730 hours compute | Basic Tier | ~$5.00 |
+| **Total Estimated Monthly Cost** | | | | **~$8.50** |
+
+This exceptionally low operational cost (approximately USD 8.50 per month) means the protocol reaches profitability at a very low TVL threshold. For context, at just USD 10,000 TVL, the 0.5% management fee (USD 50/year) covers nearly half the base infrastructure cost, with performance fees easily covering the rest.
 
 ### 3.3 Smart Contract Functions
 
@@ -249,16 +281,16 @@ The token distribution is designed to balance community ownership with team ince
 
 Crucially, the team allocation includes a 6-month cliff followed by an 18-month linear vesting schedule. This prevents the team from selling tokens immediately upon launch and strongly aligns their incentives with the long-term success and TVL growth of the protocol.
 
-	### 4.5 Alignment with Business Strategy & GTM
-	
-	The tokenomics design is tightly aligned with the Go-to-Market (GTM) strategy outlined in Section 2.4. The following table demonstrates how each phase of the strategic roadmap integrates GTM pillars with tokenomic incentives:
-	
-	| Roadmap Phase | GTM Pillar Focus | Tokenomics Mechanism | Expected Outcome |
-	|---|---|---|---|
-	| **1. Bootstrap** | Community Bootstrapping | Early Access Toll + 10% Staking Yield (funded by Community allocation) | Solves cold-start problem; attracts first $1M TVL. |
-	| **2. Growth** | Institutional Credibility | Fee Discounts (20% → 5%) for large PALPHA holders | Incentivizes whales to buy/hold PALPHA, driving token demand. |
-	| **3. Sustainability** | Trust through Transparency | 30% Revenue Buyback-and-Burn | Creates deflationary pressure; aligns team/user incentives. |
-	| **4. Decentralization** | Community Ownership | DAO Governance transition | Protocol becomes self-sustaining without centralized control. |
+### 4.5 Alignment with Business Strategy & GTM
+
+The tokenomics design is tightly aligned with the Go-to-Market (GTM) strategy outlined in Section 2.4. The following table demonstrates how each phase of the strategic roadmap integrates GTM pillars with tokenomic incentives:
+
+| Roadmap Phase | GTM Pillar Focus | Tokenomics Mechanism | Expected Outcome |
+|---|---|---|---|
+| **1. Bootstrap** | Community Bootstrapping | Early Access Toll + 10% Staking Yield (funded by Community allocation) | Solves cold-start problem; attracts first $1M TVL. |
+| **2. Growth** | Institutional Credibility | Fee Discounts (20% → 5%) for large PALPHA holders | Incentivizes whales to buy/hold PALPHA, driving token demand. |
+| **3. Sustainability** | Trust through Transparency | 30% Revenue Buyback-and-Burn | Creates deflationary pressure; aligns team/user incentives. |
+| **4. Decentralization** | Community Ownership | DAO Governance transition | Protocol becomes self-sustaining without centralized control. |
 
 ---
 
