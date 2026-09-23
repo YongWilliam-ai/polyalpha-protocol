@@ -1,3 +1,5 @@
+> **INTERVIEW / CURRENT-STATE NOTICE (2026-09-22):** This file is a dated project snapshot, not the current source of truth. Use [`CURRENT_STATE.md`](./CURRENT_STATE.md), current source code and [`README.md`](./README.md) when describing the project today.
+
 # PolyAlpha Protocol — Technical Debt Report
 > Last Updated: April 28, 2026 | Phase 1 Audit
 

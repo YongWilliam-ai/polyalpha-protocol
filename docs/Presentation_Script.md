@@ -1,3 +1,5 @@
+> **INTERVIEW / CURRENT-STATE NOTICE (2026-09-22):** This is a historical course / presentation artifact and is intentionally preserved. Some numerical claims, network references, execution descriptions and performance language were superseded by later implementation. For the current implementation, use the executable source code plus [`../CURRENT_STATE.md`](../CURRENT_STATE.md) and [`../README.md`](../README.md). Current live CLOB execution is not implemented and simulation metrics are not evidence of realized alpha.
+
 # PolyAlpha Protocol — Final Presentation Script
 
 > **Presenter**: William Yong

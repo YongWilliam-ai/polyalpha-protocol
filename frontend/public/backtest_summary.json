@@ -25,5 +25,5 @@
     "momentum_scale": 15.0,
     "rng_seed": 42
   },
-  "note": "Reproducible backtest using real Polymarket Gamma API data. Run: python agent/backtest_reproducible.py"
+  "note": "Reproducible simulation / sensitivity harness using real closed-market metadata, reconstructed entry prices and an assumed signal-accuracy process. Metrics are simulation outputs, not evidence of realized or independently historical alpha."
 }

@@ -1,5 +1,5 @@
 /**
- * PolyAlpha deployment script -- Polygon Amoy testnet
+ * PolyAlpha deployment script -- configured EVM testnet (ChainLab primary demo; Amoy supported)
  * Deploys all 6 core contracts in dependency order.
  *
  * Order:

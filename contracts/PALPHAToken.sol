@@ -33,7 +33,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  *   Phase 2: DAO controls risk parameters via 48h timelock
  *   Phase 3: renounceFounderControl() transfers ownership to DAO treasury permanently
  *
- * Prototype scope: Deployed on Polygon Amoy testnet.
+ * Prototype scope: EVM testnet prototype.
  *                  Staking pool and DAO governance are architectural stubs in v1.
  */
 contract PALPHAToken is ERC20, ERC20Burnable, Ownable {

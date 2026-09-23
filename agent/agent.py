@@ -35,7 +35,7 @@ To run:
   cd agent && python agent.py
 
 Requirements:
-  .env with VAULT_CONTRACT_ADDRESS, PRIVATE_KEY, AMOY_RPC_URL
+  .env with VAULT_CONTRACT_ADDRESS, PRIVATE_KEY and CHAIN_RPC_URL
   pip install -r requirements.txt
 """
 
@@ -294,8 +294,8 @@ def safety_check_chain(
 # -- Web3 setup ---------------------------------------------------------------
 
 def build_web3_connection() -> tuple[Web3, object, str]:
-    """Connect to Polygon Amoy and load the vault contract."""
-    rpc = os.getenv("AMOY_RPC_URL", "https://rpc-amoy.polygon.technology/")
+    """Connect to the configured testnet RPC and load the vault contract."""
+    rpc = os.getenv("CHAIN_RPC_URL") or os.getenv("CHAINLAB_RPC_URL") or os.getenv("AMOY_RPC_URL") or "https://testnet.chainlab.fun"
     w3  = Web3(Web3.HTTPProvider(rpc))
 
     if not w3.is_connected():
@@ -317,7 +317,7 @@ def build_web3_connection() -> tuple[Web3, object, str]:
     account = Account.from_key(agent_wallet)
     log.info(f"Agent wallet: {account.address}")
     log.info(f"Vault:        {vault_addr}")
-    log.info(f"Network:      Polygon Amoy (chain {w3.eth.chain_id})")
+    log.info(f"Network:      configured testnet (chain {w3.eth.chain_id})")
 
     return w3, vault, account.address
 
@@ -465,7 +465,7 @@ def log_position_on_chain(
         "nonce":    nonce,
         "gasPrice": gas_price,
         "gas":      200_000,
-        "chainId":  80002,  # Polygon Amoy
+        "chainId":  w3.eth.chain_id,
     })
 
     signed   = account.sign_transaction(tx)

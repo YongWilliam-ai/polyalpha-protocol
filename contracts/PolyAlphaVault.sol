@@ -19,7 +19,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  *   Circuit breaker halts all activity if NAV drops 20% from peak
  *   Performance fee (20%) + management fee (0.5%) collected by owner
  *
- * Prototype scope: Polygon Amoy testnet only. No live execution in v1.
+ * Prototype scope: EVM testnet only. No live Polymarket order execution in v1.
  */
 contract PolyAlphaVault is ERC4626, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;

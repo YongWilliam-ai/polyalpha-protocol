@@ -40,10 +40,10 @@ export default function BacktestPage() {
       {/* Page header */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-white tracking-tight">
-          Backtest Results
+          Simulation / Research Results
         </h2>
         <p className="text-gray-500 font-mono text-xs mt-1">
-          H1: BTC Momentum Signal · Quarter-Kelly Sizing · Polymarket Gamma API Data
+          H1 research harness · Quarter-Kelly sizing · closed-market metadata + explicit simulation assumptions
         </p>
       </div>
 
@@ -95,7 +95,7 @@ export default function BacktestPage() {
           {/* Hypothesis verdict */}
           {summary.win_rate_pct >= 58 && (
             <div className="bg-accent/5 border border-accent/30 text-accent p-4 font-mono text-sm mb-4">
-              <span className="font-bold">PASS</span> win_rate {">="} 58% — Hypothesis SUPPORTED. Momentum signal has measurable edge in prediction markets.
+              <span className="font-bold">SIMULATION RESULT</span> win_rate {">="} 58% under the stated assumptions. This does not establish live or historical predictive edge.
             </div>
           )}
           {summary.win_rate_pct >= 52 && summary.win_rate_pct < 58 && (
