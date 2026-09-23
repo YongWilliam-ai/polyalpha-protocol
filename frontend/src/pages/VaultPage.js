@@ -224,7 +224,7 @@ export default function VaultPage() {
                     <span className="animate-ping absolute inline-flex h-full w-full bg-success opacity-75" />
                     <span className="relative inline-flex h-3 w-3 bg-success" />
                   </span>
-                  <span className="text-xs font-mono text-success uppercase tracking-widest">LIVE</span>
+                  <span className="text-xs font-mono text-success uppercase tracking-widest">TESTNET</span>
                 </span>
               )}
               {vaultStats?.halted && (
@@ -240,7 +240,7 @@ export default function VaultPage() {
 
           {demoMode && !wallet && (
             <div className="bg-dark border border-yellow-700/30 text-yellow-400 p-3 font-mono text-xs mb-4">
-              <span className="font-bold">DEMO MODE</span> — Displaying simulated vault data. Connect your wallet to interact with the live vault on ChainLab Testnet.
+              <span className="font-bold">DEMO MODE</span> — Displaying simulated vault data. Connect your wallet to interact with the deployed testnet vault on ChainLab Testnet.
             </div>
           )}
           {demoMode && wallet && (

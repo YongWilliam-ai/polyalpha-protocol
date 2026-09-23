@@ -168,7 +168,7 @@ export default function PositionLogPage() {
         <strong className="text-accent">On-chain audit trail.</strong> Every signal the AI agent generates is logged immutably
         via <code className="bg-gray-800 px-1 text-accent">PositionLogged</code> events on ChainLab Testnet.
         The <code className="bg-gray-800 px-1 text-accent">oracleInputHash</code> is SHA-256(btcOpen + btcNow + polyOdds + timestamp) —
-        proving the agent's inputs were not manipulated after the fact.
+        providing tamper evidence for the committed payload; it does not attest that the external source itself was truthful.
         {lastBlock && (
           <span className="text-gray-500 ml-2">· Block height: {lastBlock.toLocaleString()}</span>
         )}
@@ -240,11 +240,11 @@ export default function PositionLogPage() {
         <div className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-3">// signal_interpretation</div>
         <div className="bg-surface border border-gray-800 p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-400">
-            <div><span className="font-mono text-white">AI Prob</span>: Agent's estimated win probability (momentum + swarm consensus)</div>
+            <div><span className="font-mono text-white">AI Prob</span>: Legacy field name for the signal-probability estimate in this path; swarm research is a separate experimental module</div>
             <div><span className="font-mono text-white">Mkt Price</span>: Polymarket's current YES price at signal time</div>
             <div><span className="font-mono text-white">Edge</span>: AI Prob − Market Price. Must be ≥3% (300 bps) for execution.</div>
             <div><span className="font-mono text-white">Kelly</span>: Quarter-Kelly position size as % of TVL (max 5%)</div>
-            <div><span className="font-mono text-white">Oracle Hash</span>: SHA-256 proof of inputs — tamper evidence on-chain</div>
+            <div><span className="font-mono text-white">Oracle Hash</span>: SHA-256 input commitment — tamper evidence, not source attestation</div>
             <div><span className="font-mono text-white">SKIP</span>: Edge below threshold — agent observed but did not trade</div>
           </div>
         </div>

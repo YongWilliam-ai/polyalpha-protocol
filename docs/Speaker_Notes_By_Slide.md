@@ -1,3 +1,5 @@
+> **INTERVIEW / CURRENT-STATE NOTICE (2026-09-22):** This is a historical course / presentation artifact and is intentionally preserved. Some numerical claims, network references, execution descriptions and performance language were superseded by later implementation. For the current implementation, use the executable source code plus [`../CURRENT_STATE.md`](../CURRENT_STATE.md) and [`../README.md`](../README.md). Current live CLOB execution is not implemented and simulation metrics are not evidence of realized alpha.
+
 # PolyAlpha Protocol — Speaker Notes (Slide by Slide)
 
 > **使用說明**：這份文件為你 16 頁的 Pitch Deck 提供了逐頁的「演講備註」。你可以把它印出來，或是放在演講者畫面上。當 Q&A 被問到特定頁面時，你可以立刻參考底部的「🔥 必備 Q&A」來回答。

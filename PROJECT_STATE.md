@@ -1,3 +1,5 @@
+> **INTERVIEW / CURRENT-STATE NOTICE (2026-09-22):** This file is a dated project snapshot, not the current source of truth. Use [`CURRENT_STATE.md`](./CURRENT_STATE.md), current source code and [`README.md`](./README.md) when describing the project today.
+
 # PolyAlpha Protocol — Project State Log
 
 > **用途**：這份文件是 PolyAlpha Protocol 的專案狀態記錄，記錄所有已完成的功能、合約地址與技術規格。
